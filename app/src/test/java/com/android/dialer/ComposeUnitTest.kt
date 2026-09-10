@@ -1,20 +1,15 @@
 package com.android.dialer
 
-import android.content.ComponentName
 import android.os.Build
-import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.android.dialer.testutil.composeActivityRule
 import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TestRule
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -22,17 +17,7 @@ import org.robolectric.annotation.Config
 class ComposeUnitTest {
 
     @get:Rule(order = 0)
-    val componentActivityRule = TestRule { base, _ ->
-        object : Statement() {
-            override fun evaluate() {
-                val application = RuntimeEnvironment.getApplication()
-                shadowOf(application.packageManager).addActivityIfNotPresent(
-                    ComponentName(application, ComponentActivity::class.java),
-                )
-                base.evaluate()
-            }
-        }
-    }
+    val componentActivityRule = composeActivityRule()
 
     @get:Rule(order = 1)
     val composeRule = createComposeRule()
