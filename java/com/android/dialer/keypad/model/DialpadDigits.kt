@@ -6,6 +6,9 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
 import com.android.dialer.dialpadview.UnicodeDialerKeyListener
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** The pause character, inserted by the keypad's "Add 2-sec pause" overflow item. */
 internal const val PAUSE = ','
@@ -32,13 +35,24 @@ internal class DialpadDigits {
 
     private val buffer: Editable = SpannableStringBuilder()
 
+    private val _text = MutableStateFlow("")
+
+    /**
+     * The current number, republished on every edit.
+     *
+     * No mutator has to remember to publish. [TextEmitter] is attached to [buffer] as a
+     * `TextWatcher` span, and `SpannableStringBuilder` dispatches to those on every `replace` —
+     * the same mechanism the formatter runs on, so a reformat republishes too.
+     */
+    val text: StateFlow<String> = _text.asStateFlow()
+
     init {
         buffer.filters = arrayOf(UnicodeDialerKeyListener.INSTANCE)
+        // Attached before any formatter, so the formatter's own rewrite re-enters the watchers and
+        // the last value published is the formatted one.
+        buffer.setSpan(TextEmitter(), 0, 0, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
         Selection.setSelection(buffer, 0)
     }
-
-    val text: String
-        get() = buffer.toString()
 
     val length: Int
         get() = buffer.length
@@ -165,4 +179,14 @@ internal class DialpadDigits {
     ): Boolean =
         newDigit != WAIT ||
             (digits[start - 1] != WAIT && (digits.length <= end || digits[end] != WAIT))
+
+    private inner class TextEmitter : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+
+        override fun afterTextChanged(s: Editable) {
+            _text.value = s.toString()
+        }
+    }
 }

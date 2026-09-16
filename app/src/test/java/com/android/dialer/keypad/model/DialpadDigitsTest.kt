@@ -18,7 +18,7 @@ class DialpadDigitsTest {
     fun startsEmptyWithCursorAtZero() {
         val digits = DialpadDigits()
 
-        assertEquals("", digits.text)
+        assertEquals("", digits.text.value)
         assertTrue(digits.isEmpty)
         assertEquals(0, digits.selectionStart)
     }
@@ -31,7 +31,7 @@ class DialpadDigitsTest {
         digits.append(KeypadKey.STAR)
         digits.append(KeypadKey.POUND)
 
-        assertEquals("5*#", digits.text)
+        assertEquals("5*#", digits.text.value)
         assertEquals(3, digits.selectionStart)
     }
 
@@ -43,7 +43,7 @@ class DialpadDigitsTest {
         digits.setSelection(1)
         digits.append('2')
 
-        assertEquals("123", digits.text)
+        assertEquals("123", digits.text.value)
     }
 
     @Test
@@ -54,7 +54,7 @@ class DialpadDigitsTest {
         digits.setSelection(1, 3)
         digits.append('2')
 
-        assertEquals("12", digits.text)
+        assertEquals("12", digits.text.value)
     }
 
     @Test
@@ -64,7 +64,7 @@ class DialpadDigitsTest {
 
         digits.delete()
 
-        assertEquals("12", digits.text)
+        assertEquals("12", digits.text.value)
     }
 
     @Test
@@ -75,7 +75,7 @@ class DialpadDigitsTest {
         digits.setSelection(1, 4)
         digits.delete()
 
-        assertEquals("15", digits.text)
+        assertEquals("15", digits.text.value)
     }
 
     @Test
@@ -86,7 +86,7 @@ class DialpadDigitsTest {
         digits.setSelection(0)
         digits.delete()
 
-        assertEquals("123", digits.text)
+        assertEquals("123", digits.text.value)
     }
 
     @Test
@@ -96,7 +96,7 @@ class DialpadDigitsTest {
 
         digits.clear()
 
-        assertEquals("", digits.text)
+        assertEquals("", digits.text.value)
         assertTrue(digits.isEmpty)
     }
 
@@ -107,7 +107,7 @@ class DialpadDigitsTest {
         // Arabic-Indic digits, as produced by pasting from an Arabic keyboard.
         digits.setText("١٢٣")
 
-        assertEquals("123", digits.text)
+        assertEquals("123", digits.text.value)
     }
 
     @Test
@@ -116,7 +116,7 @@ class DialpadDigitsTest {
 
         digits.setText("ABC")
 
-        assertEquals("222", digits.text)
+        assertEquals("222", digits.text.value)
     }
 
     @Test
@@ -124,7 +124,7 @@ class DialpadDigitsTest {
         val digits = DialpadDigits()
 
         assertFalse(digits.insertDialStringChar(PAUSE))
-        assertEquals("", digits.text)
+        assertEquals("", digits.text.value)
     }
 
     @Test
@@ -134,7 +134,7 @@ class DialpadDigitsTest {
 
         assertTrue(digits.insertDialStringChar(PAUSE))
 
-        assertEquals("123,", digits.text)
+        assertEquals("123,", digits.text.value)
     }
 
     @Test
@@ -145,7 +145,7 @@ class DialpadDigitsTest {
 
         assertFalse(digits.insertDialStringChar(WAIT))
 
-        assertEquals("123;", digits.text)
+        assertEquals("123;", digits.text.value)
     }
 
     @Test
@@ -156,7 +156,7 @@ class DialpadDigitsTest {
         digits.setSelection(3)
 
         assertFalse(digits.insertDialStringChar(WAIT))
-        assertEquals("123;", digits.text)
+        assertEquals("123;", digits.text.value)
     }
 
     @Test
@@ -167,7 +167,7 @@ class DialpadDigitsTest {
 
         assertTrue(digits.insertDialStringChar(PAUSE))
 
-        assertEquals("123;,", digits.text)
+        assertEquals("123;,", digits.text.value)
     }
 
     @Test
@@ -187,7 +187,7 @@ class DialpadDigitsTest {
 
         digits.removePreviousDigitIfPossible('1')
 
-        assertEquals("1", digits.text)
+        assertEquals("1", digits.text.value)
     }
 
     @Test
@@ -197,7 +197,7 @@ class DialpadDigitsTest {
 
         digits.removePreviousDigitIfPossible('1')
 
-        assertEquals("12", digits.text)
+        assertEquals("12", digits.text.value)
     }
 
     @Test
@@ -207,7 +207,37 @@ class DialpadDigitsTest {
 
         "6505551212".forEach { digits.append(it) }
 
-        assertEquals("(650) 555-1212", digits.text)
+        assertEquals("(650) 555-1212", digits.text.value)
+    }
+
+    @Test
+    fun formattingWatcherGroupsEstonianMobileNumbers() {
+        val digits = DialpadDigits()
+        digits.addFormattingWatcher(DialerPhoneNumberFormattingTextWatcher("EE"))
+
+        "51234567".forEach { digits.append(it) }
+
+        assertEquals("5123 4567", digits.text.value)
+    }
+
+    @Test
+    fun formattingWatcherGroupsEstonianLandlineNumbers() {
+        val digits = DialpadDigits()
+        digits.addFormattingWatcher(DialerPhoneNumberFormattingTextWatcher("EE"))
+
+        "6616161".forEach { digits.append(it) }
+
+        assertEquals("661 6161", digits.text.value)
+    }
+
+    @Test
+    fun formattingWatcherLeavesShortCodesAlone() {
+        val digits = DialpadDigits()
+        digits.addFormattingWatcher(DialerPhoneNumberFormattingTextWatcher("EE"))
+
+        "112".forEach { digits.append(it) }
+
+        assertEquals("112", digits.text.value)
     }
 
     @Test
@@ -219,7 +249,7 @@ class DialpadDigitsTest {
         // libphonenumber formats incorrectly, so the watcher deliberately leaves it raw.
         "1115678901".forEach { digits.append(it) }
 
-        assertEquals("1115678901", digits.text)
+        assertEquals("1115678901", digits.text.value)
     }
 
     @Test
@@ -230,6 +260,6 @@ class DialpadDigitsTest {
         // No 15 prefix, so the Argentina bypass must not swallow the normal formatting.
         "1156789012".forEach { digits.append(it) }
 
-        assertEquals("11 5678-9012", digits.text)
+        assertEquals("11 5678-9012", digits.text.value)
     }
 }
