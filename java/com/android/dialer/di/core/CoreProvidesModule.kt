@@ -1,0 +1,37 @@
+package com.android.dialer.di.core
+
+import android.content.Context
+import android.telephony.TelephonyManager
+import dagger.Module
+import dagger.Provides
+import dagger.Reusable
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal class CoreProvidesModule {
+
+    @Provides
+    @Reusable
+    @DefaultDispatcher
+    fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
+
+    @Provides
+    @Reusable
+    @IoDispatcher
+    fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
+    @Provides
+    @Reusable
+    @MainDispatcher
+    fun provideMainDispatcher(): CoroutineDispatcher = Dispatchers.Main
+
+    @Provides
+    @Reusable
+    fun provideTelephonyManager(@ApplicationContext context: Context): TelephonyManager =
+        context.getSystemService(TelephonyManager::class.java)
+}

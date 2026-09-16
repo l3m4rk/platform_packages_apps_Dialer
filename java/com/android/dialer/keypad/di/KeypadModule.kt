@@ -1,9 +1,15 @@
 package com.android.dialer.keypad.di
 
 import com.android.dialer.keypad.domain.DtmfTonePlayer
+import com.android.dialer.keypad.domain.EmergencyCallWarning
+import com.android.dialer.keypad.domain.LastOutgoingCall
 import com.android.dialer.keypad.domain.SystemDtmfTonePlayer
+import com.android.dialer.keypad.domain.SystemEmergencyCallWarning
+import com.android.dialer.keypad.domain.SystemLastOutgoingCall
 import com.android.dialer.keypad.domain.SystemToneGeneratorFactory
+import com.android.dialer.keypad.domain.SystemVoicemailAvailability
 import com.android.dialer.keypad.domain.ToneGeneratorFactory
+import com.android.dialer.keypad.domain.VoicemailAvailability
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,4 +32,13 @@ internal interface KeypadModule {
 
     @Binds
     fun bindToneGeneratorFactory(factory: SystemToneGeneratorFactory): ToneGeneratorFactory
+
+    @Binds
+    fun bindVoicemailAvailability(availability: SystemVoicemailAvailability): VoicemailAvailability
+
+    @Binds
+    fun bindLastOutgoingCall(lastOutgoingCall: SystemLastOutgoingCall): LastOutgoingCall
+
+    @Binds
+    fun bindEmergencyCallWarning(warning: SystemEmergencyCallWarning): EmergencyCallWarning
 }
