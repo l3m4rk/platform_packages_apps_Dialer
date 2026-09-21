@@ -1,5 +1,7 @@
 package com.android.dialer.keypad.di
 
+import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
+import com.android.dialer.keypad.domain.CheckIfNumberIsProhibitedImpl
 import com.android.dialer.keypad.domain.DtmfTonePlayer
 import com.android.dialer.keypad.domain.EmergencyCallWarning
 import com.android.dialer.keypad.domain.LastOutgoingCall
@@ -25,6 +27,7 @@ import dagger.hilt.components.SingletonComponent
  * dialogs — is reported by the view model as an effect and carried out by the keypad fragment
  * instead, so that no `Activity` is ever reachable from a `ViewModel`.
  */
+@Suppress("Unused")
 @Module
 @InstallIn(SingletonComponent::class)
 internal interface KeypadModule {
@@ -46,4 +49,9 @@ internal interface KeypadModule {
 
     @Binds
     fun bindPhoneNumberFormatting(formatting: SystemPhoneNumberFormatting): PhoneNumberFormatting
+
+    @Binds
+    fun bindCheckIfNumberIsProhibited(
+        check: CheckIfNumberIsProhibitedImpl,
+    ): CheckIfNumberIsProhibited
 }

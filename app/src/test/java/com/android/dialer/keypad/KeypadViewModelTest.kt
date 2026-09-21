@@ -4,11 +4,15 @@ import android.media.ToneGenerator
 import android.os.Build
 import app.cash.turbine.test
 import com.android.dialer.dialpadview.DialerPhoneNumberFormattingTextWatcher
+import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
 import com.android.dialer.keypad.domain.DtmfTonePlayer
 import com.android.dialer.keypad.domain.EmergencyCallWarning
+import com.android.dialer.keypad.domain.LastOutgoingCall
 import com.android.dialer.keypad.domain.PhoneNumberFormatting
 import com.android.dialer.keypad.domain.TONE_LENGTH_INFINITE
+import com.android.dialer.keypad.domain.TONE_LENGTH_MS
 import com.android.dialer.keypad.domain.VoicemailAvailability
+import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.testutil.MainDispatcherRule
@@ -42,11 +46,15 @@ class KeypadViewModelTest {
     private val voicemailAvailability = mockk<VoicemailAvailability>(relaxed = true)
     private val emergencyCallWarning = mockk<EmergencyCallWarning>()
     private val phoneNumberFormatting = mockk<PhoneNumberFormatting>()
+    private val lastOutgoingCall = mockk<LastOutgoingCall>()
+    private val checkIfNumberIsProhibited = mockk<CheckIfNumberIsProhibited>()
 
     @Before
     fun setUp() {
         every { emergencyCallWarning.shouldShow() } returns false
         coEvery { phoneNumberFormatting.createWatcher() } returns null
+        coEvery { lastOutgoingCall() } returns null
+        every { checkIfNumberIsProhibited(any()) } returns false
     }
 
     // region typing
@@ -64,7 +72,7 @@ class KeypadViewModelTest {
     fun aKeyPressStartsAToneOfUnboundedLength() {
         val viewModel = createViewModel()
 
-        viewModel.onKeyPressed(KeypadKey.SEVEN)
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.SEVEN))
 
         verify(exactly = 1) {
             tonePlayer.play(ToneGenerator.TONE_DTMF_7, TONE_LENGTH_INFINITE)
@@ -76,8 +84,8 @@ class KeypadViewModelTest {
     fun releasingTheOnlyHeldKeyStopsTheTone() {
         val viewModel = createViewModel()
 
-        viewModel.onKeyPressed(KeypadKey.ONE)
-        viewModel.onKeyReleased(KeypadKey.ONE)
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ONE))
+        viewModel.onAction(KeypadAction.KeyReleased(KeypadKey.ONE))
 
         verify(exactly = 1) { tonePlayer.stop() }
     }
@@ -86,13 +94,13 @@ class KeypadViewModelTest {
     fun releasingOneOfTwoHeldKeysKeepsTheTonePlaying() {
         val viewModel = createViewModel()
 
-        viewModel.onKeyPressed(KeypadKey.ONE)
-        viewModel.onKeyPressed(KeypadKey.TWO)
-        viewModel.onKeyReleased(KeypadKey.ONE)
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ONE))
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.TWO))
+        viewModel.onAction(KeypadAction.KeyReleased(KeypadKey.ONE))
 
         verify(exactly = 0) { tonePlayer.stop() }
 
-        viewModel.onKeyReleased(KeypadKey.TWO)
+        viewModel.onAction(KeypadAction.KeyReleased(KeypadKey.TWO))
 
         verify(exactly = 1) { tonePlayer.stop() }
     }
@@ -101,8 +109,8 @@ class KeypadViewModelTest {
     fun releasingAKeyThatWasNeverHeldDoesNotStopAnotherKeysTone() {
         val viewModel = createViewModel()
 
-        viewModel.onKeyPressed(KeypadKey.ONE)
-        viewModel.onKeyReleased(KeypadKey.NINE)
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ONE))
+        viewModel.onAction(KeypadAction.KeyReleased(KeypadKey.NINE))
 
         verify(exactly = 0) { tonePlayer.stop() }
     }
@@ -116,7 +124,7 @@ class KeypadViewModelTest {
         val viewModel = createViewModel()
         viewModel.press(KeypadKey.ONE, KeypadKey.TWO, KeypadKey.THREE)
 
-        viewModel.onDeleteClicked()
+        viewModel.onAction(KeypadAction.DeleteClicked)
 
         assertEquals("12", viewModel.uiState.value.digits)
     }
@@ -126,7 +134,7 @@ class KeypadViewModelTest {
         val viewModel = createViewModel()
         viewModel.press(KeypadKey.ONE, KeypadKey.TWO, KeypadKey.THREE)
 
-        viewModel.onDeleteLongPressed()
+        viewModel.onAction(KeypadAction.DeleteLongPressed)
 
         assertEquals("", viewModel.uiState.value.digits)
     }
@@ -142,7 +150,7 @@ class KeypadViewModelTest {
         assertTrue(viewModel.uiState.value.isDeleteEnabled)
         assertTrue(viewModel.uiState.value.isOverflowVisible)
 
-        viewModel.onDeleteClicked()
+        viewModel.onAction(KeypadAction.DeleteClicked)
 
         assertFalse(viewModel.uiState.value.isDeleteEnabled)
         assertFalse(viewModel.uiState.value.isOverflowVisible)
@@ -156,8 +164,8 @@ class KeypadViewModelTest {
     fun longPressingZeroReplacesTheTypedZeroWithPlus() {
         val viewModel = createViewModel()
 
-        viewModel.onKeyPressed(KeypadKey.ZERO)
-        viewModel.onPlusKeyLongPressed()
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ZERO))
+        viewModel.onAction(KeypadAction.PlusKeyLongPressed)
 
         assertEquals("+", viewModel.uiState.value.digits)
     }
@@ -166,8 +174,8 @@ class KeypadViewModelTest {
     fun longPressingZeroStopsTheTone() {
         val viewModel = createViewModel()
 
-        viewModel.onKeyPressed(KeypadKey.ZERO)
-        viewModel.onPlusKeyLongPressed()
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ZERO))
+        viewModel.onAction(KeypadAction.PlusKeyLongPressed)
 
         verify(exactly = 1) { tonePlayer.stop() }
     }
@@ -178,7 +186,7 @@ class KeypadViewModelTest {
         viewModel.press(KeypadKey.ONE, KeypadKey.ZERO)
 
         // An accessibility service can deliver a long press with no key held.
-        viewModel.onPlusKeyLongPressed()
+        viewModel.onAction(KeypadAction.PlusKeyLongPressed)
 
         assertEquals("10+", viewModel.uiState.value.digits)
     }
@@ -188,8 +196,8 @@ class KeypadViewModelTest {
         val viewModel = createViewModel()
         viewModel.press(KeypadKey.ONE, KeypadKey.TWO)
 
-        viewModel.onKeyPressed(KeypadKey.ZERO)
-        viewModel.onPlusKeyLongPressed()
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ZERO))
+        viewModel.onAction(KeypadAction.PlusKeyLongPressed)
 
         assertEquals("12+", viewModel.uiState.value.digits)
     }
@@ -204,7 +212,7 @@ class KeypadViewModelTest {
         val viewModel = createViewModel()
 
         viewModel.effects.test {
-            viewModel.onVoicemailKeyLongPressed()
+            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
             assertEquals(KeypadScreenEffect.CallVoicemail, awaitItem())
             cancelAndIgnoreRemainingEvents()
@@ -218,7 +226,7 @@ class KeypadViewModelTest {
         viewModel.press(KeypadKey.ONE)
 
         viewModel.effects.test {
-            viewModel.onVoicemailKeyLongPressed()
+            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
             assertEquals(KeypadScreenEffect.CallVoicemail, awaitItem())
             cancelAndIgnoreRemainingEvents()
@@ -233,7 +241,7 @@ class KeypadViewModelTest {
         viewModel.press(KeypadKey.ONE, KeypadKey.ONE)
 
         viewModel.effects.test {
-            viewModel.onVoicemailKeyLongPressed()
+            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
             assertEquals(KeypadScreenEffect.CallVoicemail, awaitItem())
             cancelAndIgnoreRemainingEvents()
@@ -247,7 +255,7 @@ class KeypadViewModelTest {
         viewModel.press(KeypadKey.FIVE, KeypadKey.ONE)
 
         viewModel.effects.test {
-            viewModel.onVoicemailKeyLongPressed()
+            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
             expectNoEvents()
         }
@@ -261,7 +269,7 @@ class KeypadViewModelTest {
         val viewModel = createViewModel()
 
         viewModel.effects.test {
-            viewModel.onVoicemailKeyLongPressed()
+            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
             assertEquals(KeypadScreenEffect.ShowVoicemailAirplaneModeError, awaitItem())
             cancelAndIgnoreRemainingEvents()
@@ -275,7 +283,7 @@ class KeypadViewModelTest {
         val viewModel = createViewModel()
 
         viewModel.effects.test {
-            viewModel.onVoicemailKeyLongPressed()
+            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
             assertEquals(KeypadScreenEffect.ShowVoicemailNotReadyError, awaitItem())
             cancelAndIgnoreRemainingEvents()
@@ -291,8 +299,8 @@ class KeypadViewModelTest {
         val viewModel = createViewModel()
         viewModel.press(KeypadKey.ONE, KeypadKey.TWO)
 
-        viewModel.onPauseClicked()
-        viewModel.onWaitClicked()
+        viewModel.onAction(KeypadAction.PauseClicked)
+        viewModel.onAction(KeypadAction.WaitClicked)
 
         assertEquals("12,;", viewModel.uiState.value.digits)
     }
@@ -301,9 +309,93 @@ class KeypadViewModelTest {
     fun pauseIsRejectedAsTheFirstCharacter() {
         val viewModel = createViewModel()
 
-        viewModel.onPauseClicked()
+        viewModel.onAction(KeypadAction.PauseClicked)
 
         assertEquals("", viewModel.uiState.value.digits)
+    }
+
+    // endregion
+
+    // region call button
+
+    @Test
+    fun theCallButtonPlacesACallWithTheTypedNumber() = runTest {
+        val viewModel = createViewModel()
+        viewModel.press(KeypadKey.FIVE, KeypadKey.FIVE, KeypadKey.FIVE)
+
+        viewModel.effects.test {
+            viewModel.onAction(KeypadAction.CallClicked)
+
+            assertEquals(KeypadScreenEffect.PlaceCall("555"), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aProhibitedNumberIsRefusedAndTheFieldCleared() = runTest {
+        every { checkIfNumberIsProhibited("555") } returns true
+        val viewModel = createViewModel()
+        viewModel.press(KeypadKey.FIVE, KeypadKey.FIVE, KeypadKey.FIVE)
+
+        viewModel.effects.test {
+            viewModel.onAction(KeypadAction.CallClicked)
+
+            assertEquals(KeypadScreenEffect.ShowProhibitedNumberError, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals("", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun theCallButtonOnAnEmptyFieldRecallsTheLastDialedNumber() {
+        coEvery { lastOutgoingCall() } returns "5551234"
+        val viewModel = createViewModel()
+        viewModel.onHostStarted()
+
+        viewModel.onAction(KeypadAction.CallClicked)
+
+        assertEquals("5551234", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun recallingTheLastNumberDoesNotPlaceACall() = runTest {
+        coEvery { lastOutgoingCall() } returns "5551234"
+        val viewModel = createViewModel()
+        viewModel.onHostStarted()
+
+        viewModel.effects.test {
+            viewModel.onAction(KeypadAction.CallClicked)
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun theCallButtonOnAnEmptyFieldWithNoHistoryPlaysTheErrorTone() {
+        coEvery { lastOutgoingCall() } returns null
+        val viewModel = createViewModel()
+        viewModel.onHostStarted()
+
+        viewModel.onAction(KeypadAction.CallClicked)
+
+        verify(exactly = 1) {
+            tonePlayer.play(ToneGenerator.TONE_PROP_NACK, TONE_LENGTH_MS)
+        }
+        assertEquals("", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun theRecalledNumberCanBeEditedFromItsEnd() {
+        coEvery { lastOutgoingCall() } returns "5551234"
+        val viewModel = createViewModel()
+        viewModel.onHostStarted()
+        viewModel.onAction(KeypadAction.CallClicked)
+
+        // The cursor must sit past the end of the recalled number, so backspace trims it rather
+        // than doing nothing.
+        viewModel.onAction(KeypadAction.DeleteClicked)
+
+        assertEquals("555123", viewModel.uiState.value.digits)
     }
 
     // endregion
@@ -324,11 +416,11 @@ class KeypadViewModelTest {
     @Test
     fun stoppingTheHostForgetsHeldKeysSoTheNextPressStillStops() {
         val viewModel = createViewModel()
-        viewModel.onKeyPressed(KeypadKey.ONE)
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ONE))
 
         viewModel.onHostStopped()
-        viewModel.onKeyPressed(KeypadKey.TWO)
-        viewModel.onKeyReleased(KeypadKey.TWO)
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.TWO))
+        viewModel.onAction(KeypadAction.KeyReleased(KeypadKey.TWO))
 
         verify(exactly = 1) { tonePlayer.stop() }
     }
@@ -366,7 +458,7 @@ class KeypadViewModelTest {
         viewModel.press(KeypadKey.ONE)
 
         every { emergencyCallWarning.shouldShow() } returns true
-        viewModel.onDeleteClicked()
+        viewModel.onAction(KeypadAction.DeleteClicked)
 
         assertTrue(viewModel.uiState.value.showsEmergencyCallWarning)
     }
@@ -404,6 +496,8 @@ class KeypadViewModelTest {
     @Test
     fun typingStillWorksWhenFormattingIsUnavailable() {
         coEvery { phoneNumberFormatting.createWatcher() } returns null
+        coEvery { lastOutgoingCall() } returns null
+        every { checkIfNumberIsProhibited(any()) } returns false
         val viewModel = createViewModel()
 
         viewModel.press(KeypadKey.SIX, KeypadKey.FIVE, KeypadKey.ZERO)
@@ -418,12 +512,14 @@ class KeypadViewModelTest {
         voicemailAvailability = voicemailAvailability,
         emergencyCallWarning = emergencyCallWarning,
         phoneNumberFormatting = phoneNumberFormatting,
+        lastOutgoingCall = lastOutgoingCall,
+        checkIfNumberIsProhibited = checkIfNumberIsProhibited,
     )
 
     private fun KeypadViewModel.press(vararg keys: KeypadKey) {
         keys.forEach { key ->
-            onKeyPressed(key)
-            onKeyReleased(key)
+            onAction(KeypadAction.KeyPressed(key))
+            onAction(KeypadAction.KeyReleased(key))
         }
     }
 }

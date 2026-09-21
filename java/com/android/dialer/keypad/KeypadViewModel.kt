@@ -1,12 +1,17 @@
 package com.android.dialer.keypad
 
+import android.media.ToneGenerator
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
 import com.android.dialer.keypad.domain.DtmfTonePlayer
 import com.android.dialer.keypad.domain.EmergencyCallWarning
+import com.android.dialer.keypad.domain.LastOutgoingCall
 import com.android.dialer.keypad.domain.PhoneNumberFormatting
+import com.android.dialer.keypad.domain.TONE_LENGTH_MS
 import com.android.dialer.keypad.domain.VoicemailAvailability
 import com.android.dialer.keypad.model.DialpadDigits
+import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.keypad.model.KeypadUiState
@@ -35,6 +40,8 @@ internal class KeypadViewModel @Inject constructor(
     private val voicemailAvailability: VoicemailAvailability,
     private val emergencyCallWarning: EmergencyCallWarning,
     private val phoneNumberFormatting: PhoneNumberFormatting,
+    private val lastOutgoingCall: LastOutgoingCall,
+    private val checkIfNumberIsProhibited: CheckIfNumberIsProhibited,
 ) : ViewModel(),
     KeypadScreenModel {
 
@@ -48,6 +55,12 @@ internal class KeypadViewModel @Inject constructor(
      * or cuts it off early.
      */
     private val pressedKeys = mutableSetOf<KeypadKey>()
+
+    /**
+     * The number to recall when the call button is pressed on an empty field, or null when the
+     * call log holds none or cannot be read.
+     */
+    private var lastDialedNumber: String? = null
 
     /** Re-read by [refreshEmergencyCallWarning] rather than queried while mapping state. */
     private val isEmergencyCallWarningActive = MutableStateFlow(false)
@@ -107,6 +120,7 @@ internal class KeypadViewModel @Inject constructor(
         // Airplane mode, permissions and service state can all have changed while the keypad was
         // away, and the digits are unchanged, so nothing else would trigger a re-read.
         refreshEmergencyCallWarning()
+        viewModelScope.launch { lastDialedNumber = lastOutgoingCall() }
     }
 
     override fun onHostStopped() {
@@ -114,20 +128,34 @@ internal class KeypadViewModel @Inject constructor(
         pressedKeys.clear()
     }
 
-    override fun onKeyPressed(key: KeypadKey) {
+    override fun onAction(action: KeypadAction) {
+        when (action) {
+            is KeypadAction.KeyPressed -> onKeyPressed(action.key)
+            is KeypadAction.KeyReleased -> onKeyReleased(action.key)
+            KeypadAction.VoicemailKeyLongPressed -> onVoicemailKeyLongPressed()
+            KeypadAction.PlusKeyLongPressed -> onPlusKeyLongPressed()
+            KeypadAction.DeleteClicked -> digits.delete()
+            KeypadAction.DeleteLongPressed -> digits.clear()
+            KeypadAction.PauseClicked -> digits.insertDialStringChar(PAUSE)
+            KeypadAction.WaitClicked -> digits.insertDialStringChar(WAIT)
+            KeypadAction.CallClicked -> onCallClicked()
+        }
+    }
+
+    private fun onKeyPressed(key: KeypadKey) {
         pressedKeys += key
         tonePlayer.play(tone = key.tone)
         digits.append(key)
     }
 
-    override fun onKeyReleased(key: KeypadKey) {
+    private fun onKeyReleased(key: KeypadKey) {
         pressedKeys -= key
         if (pressedKeys.isEmpty()) {
             tonePlayer.stop()
         }
     }
 
-    override fun onVoicemailKeyLongPressed() {
+    private fun onVoicemailKeyLongPressed() {
         // Anything else in the field means the user is dialing a number that starts with 1, not
         // reaching for voicemail. "1" and "11" are here because a press has usually already typed
         // one, and touch exploration types two.
@@ -147,7 +175,7 @@ internal class KeypadViewModel @Inject constructor(
         )
     }
 
-    override fun onPlusKeyLongPressed() {
+    private fun onPlusKeyLongPressed() {
         // Only undo the typed zero when the key is genuinely held. An accessibility service can
         // deliver a long press without a preceding press, and there is then nothing to remove.
         if (KeypadKey.ZERO in pressedKeys) {
@@ -159,20 +187,35 @@ internal class KeypadViewModel @Inject constructor(
         pressedKeys -= KeypadKey.ZERO
     }
 
-    override fun onDeleteClicked() {
-        digits.delete()
+    /**
+     * The call button.
+     *
+     * An empty field recalls the last dialed number instead of dialing, so that the button is never
+     * simply inert. The fragment had a further branch here that sent a CDMA "empty flash" while a
+     * call was up; it was already unreachable, because it required the host's
+     * `shouldShowDialpadChooser`, which the only live host returns false from.
+     */
+    private fun onCallClicked() {
+        val number = digits.text.value
+        when {
+            number.isEmpty() -> recallLastDialedNumber()
+            checkIfNumberIsProhibited(number) -> {
+                digits.clear()
+                emitEffect(KeypadScreenEffect.ShowProhibitedNumberError)
+            }
+            else -> emitEffect(KeypadScreenEffect.PlaceCall(number))
+        }
     }
 
-    override fun onDeleteLongPressed() {
-        digits.clear()
-    }
-
-    override fun onPauseClicked() {
-        digits.insertDialStringChar(PAUSE)
-    }
-
-    override fun onWaitClicked() {
-        digits.insertDialStringChar(WAIT)
+    private fun recallLastDialedNumber() {
+        val number = lastDialedNumber
+        if (number.isNullOrEmpty()) {
+            tonePlayer.play(tone = ToneGenerator.TONE_PROP_NACK, durationMs = TONE_LENGTH_MS)
+        } else {
+            digits.setText(number)
+            // Past the end of the *formatted* text, which is longer than what was recalled.
+            digits.setSelection(digits.length)
+        }
     }
 
     private fun refreshEmergencyCallWarning() {

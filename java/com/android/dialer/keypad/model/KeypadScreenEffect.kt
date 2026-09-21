@@ -16,4 +16,15 @@ internal sealed interface KeypadScreenEffect {
 
     /** Long-pressed 1 with no voicemail for some other reason, such as a SIM still provisioning. */
     data object ShowVoicemailNotReadyError : KeypadScreenEffect
+
+    /** Dial [number]. The host places the call and then dismisses the keypad. */
+    data class PlaceCall(
+        val number: String,
+    ) : KeypadScreenEffect
+
+    /**
+     * The number matches `config_prohibited_phone_number_regexp`, a carrier or test-equipment rule
+     * against dialing it by hand. The field has already been cleared.
+     */
+    data object ShowProhibitedNumberError : KeypadScreenEffect
 }
