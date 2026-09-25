@@ -1,0 +1,166 @@
+package com.android.dialer.keypad.ui
+
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.android.dialer.keypad.model.KeypadAction
+import com.android.dialer.keypad.model.KeypadUiState
+
+/** The minimum touch target Material and the accessibility guidelines both ask for. */
+private val TOUCH_TARGET = 48.dp
+private val ICON_SIZE = 24.dp
+
+/**
+ * Overflow, the number, then backspace — the order Google's Phone app uses.
+ *
+ * Overflow and backspace are hidden with alpha rather than removed, so the number stays centered
+ * and nothing reflows as the first character is typed or the last one deleted. The View keypad
+ * made the same choice, using `INVISIBLE` rather than `GONE`.
+ */
+@Composable
+internal fun KeypadDigitsRow(
+    uiState: KeypadUiState,
+    strings: KeypadStrings,
+    onAction: (KeypadAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OverflowButton(uiState = uiState, strings = strings, onAction = onAction)
+
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = uiState.digits,
+                style = MaterialTheme.typography.displaySmall,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(KEYPAD_DIGITS_TEST_TAG),
+            )
+            if (uiState.showsEmergencyCallWarning) {
+                Text(
+                    text = strings.emergencyCallWarning,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(KEYPAD_EMERGENCY_WARNING_TEST_TAG),
+                )
+            }
+        }
+
+        DeleteButton(uiState = uiState, strings = strings, onAction = onAction)
+    }
+}
+
+/**
+ * Backspace. A tap deletes one character, a long press clears the field.
+ *
+ * A plain `IconButton` has no long press, hence the hand-rolled clickable.
+ */
+@Composable
+private fun DeleteButton(
+    uiState: KeypadUiState,
+    strings: KeypadStrings,
+    onAction: (KeypadAction) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .testTag(KEYPAD_DELETE_TEST_TAG)
+            .size(TOUCH_TARGET)
+            .alpha(if (uiState.isDeleteEnabled) 1f else 0f)
+            .combinedClickable(
+                enabled = uiState.isDeleteEnabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, radius = TOUCH_TARGET / 2),
+                onClickLabel = strings.deleteButton,
+                onClick = { onAction(KeypadAction.DeleteClicked) },
+                onLongClick = { onAction(KeypadAction.DeleteLongPressed) },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Outlined.Backspace,
+            contentDescription = strings.deleteButton,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(ICON_SIZE),
+        )
+    }
+}
+
+/** The overflow menu, whose every item acts on an existing number. */
+@Composable
+private fun OverflowButton(
+    uiState: KeypadUiState,
+    strings: KeypadStrings,
+    onAction: (KeypadAction) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = { expanded = true },
+            enabled = uiState.isOverflowVisible,
+            modifier = Modifier
+                .testTag(KEYPAD_OVERFLOW_TEST_TAG)
+                .alpha(if (uiState.isOverflowVisible) 1f else 0f),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.MoreVert,
+                contentDescription = strings.overflowButton,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(text = strings.addPause) },
+                modifier = Modifier.testTag(KEYPAD_OVERFLOW_PAUSE_TEST_TAG),
+                onClick = {
+                    expanded = false
+                    onAction(KeypadAction.PauseClicked)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(text = strings.addWait) },
+                modifier = Modifier.testTag(KEYPAD_OVERFLOW_WAIT_TEST_TAG),
+                onClick = {
+                    expanded = false
+                    onAction(KeypadAction.WaitClicked)
+                },
+            )
+        }
+    }
+}
