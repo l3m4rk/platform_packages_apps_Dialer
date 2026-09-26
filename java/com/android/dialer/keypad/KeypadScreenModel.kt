@@ -37,5 +37,11 @@ internal interface KeypadScreenModel {
      */
     fun fillFromDialIntent(intent: Intent)
 
+    /**
+     * Puts the number of the SIM contact that a special code looked up in front of whatever is in
+     * the field, which the code has normally just emptied.
+     */
+    fun insertSimContactNumber(number: String)
+
     fun onAction(action: KeypadAction)
 }

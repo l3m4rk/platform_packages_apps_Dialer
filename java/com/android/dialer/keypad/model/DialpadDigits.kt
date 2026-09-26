@@ -116,6 +116,11 @@ internal class DialpadDigits {
         buffer.replace(0, buffer.length, value)
     }
 
+    /** Inserts [value] before everything already typed; the cursor keeps its place after it. */
+    fun insertAtStart(value: String) {
+        buffer.replace(0, 0, value)
+    }
+
     /**
      * Inserts [PAUSE] or [WAIT] if the current selection allows it, returning whether it did.
      *

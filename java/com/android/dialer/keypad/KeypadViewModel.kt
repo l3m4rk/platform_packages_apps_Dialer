@@ -74,6 +74,14 @@ internal class KeypadViewModel @Inject constructor(
      */
     private var fillJob: Job? = null
 
+    /**
+     * Whether the field holds a number another app supplied, until the user empties it.
+     *
+     * Special codes are only run for what the user types. Otherwise any app could send a `tel:`
+     * link that reads out the IMEI or runs an MMI code the moment the keypad opens.
+     */
+    private var isFilledByIntent = false
+
     /** Re-read by [refreshEmergencyCallWarning] rather than queried while mapping state. */
     private val isEmergencyCallWarningActive = MutableStateFlow(false)
 
@@ -125,6 +133,17 @@ internal class KeypadViewModel @Inject constructor(
             .filter { isEmpty -> isEmpty }
             .onEach { refreshEmergencyCallWarning() }
             .launchIn(viewModelScope)
+
+        // The fragment checked every change of text, which is how it caught a code the moment its
+        // last character was typed.
+        digits.text
+            .onEach { text ->
+                when {
+                    text.isEmpty() -> isFilledByIntent = false
+                    !isFilledByIntent -> emitEffect(KeypadScreenEffect.RunSpecialCode(text))
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     override fun onHostStarted() {
@@ -148,8 +167,16 @@ internal class KeypadViewModel @Inject constructor(
     override fun fillFromDialIntent(intent: Intent) {
         fillJob?.cancel()
         fillJob = viewModelScope.launch {
-            dialIntentNumber(intent)?.let(::showNumber)
+            dialIntentNumber(intent)?.let { number ->
+                // Set before the text changes, so the change is never taken for typing.
+                isFilledByIntent = true
+                showNumber(number)
+            }
         }
+    }
+
+    override fun insertSimContactNumber(number: String) {
+        digits.insertAtStart(number)
     }
 
     override fun onAction(action: KeypadAction) {

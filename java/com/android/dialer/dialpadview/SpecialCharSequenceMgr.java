@@ -105,14 +105,28 @@ public class SpecialCharSequenceMgr {
   /** This class is never instantiated. */
   private SpecialCharSequenceMgr() {}
 
+  /** Receives the number of the SIM contact an ADN code such as "12#" looked up. */
+  public interface SimContactNumberListener {
+    void onSimContactNumber(String number);
+  }
+
   public static boolean handleChars(Context context, String input, EditText textField) {
+    return handleChars(context, input, number -> textField.getText().replace(0, 0, number));
+  }
+
+  /**
+   * Like {@link #handleChars(Context, String, EditText)}, for a keypad without an {@link EditText}
+   * to fill: the SIM contact number goes to {@code simContactNumberListener} instead.
+   */
+  public static boolean handleChars(
+      Context context, String input, SimContactNumberListener simContactNumberListener) {
     // get rid of the separators so that the string gets parsed correctly
     String dialString = PhoneNumberUtils.stripSeparators(input);
 
     if (handleDeviceIdDisplay(context, dialString)
         || handleRegulatoryInfoDisplay(context, dialString)
         || handlePinEntry(context, dialString)
-        || handleAdnEntry(context, dialString, textField)
+        || handleAdnEntry(context, dialString, simContactNumberListener)
         || handleSecretCode(context, dialString)) {
       return true;
     }
@@ -164,12 +178,13 @@ public class SpecialCharSequenceMgr {
   }
 
   /**
-   * Handle ADN requests by filling in the SIM contact number into the requested EditText.
+   * Handle ADN requests by handing the SIM contact number to the requested listener.
    *
    * <p>This code works alongside the Asynchronous query handler {@link QueryHandler} and query
    * cancel handler implemented in {@link SimContactQueryCookie}.
    */
-  static boolean handleAdnEntry(Context context, String input, EditText textField) {
+  static boolean handleAdnEntry(
+      Context context, String input, SimContactNumberListener simContactNumberListener) {
     /* ADN entries are of the form "N(N)(N)#" */
     TelephonyManager telephonyManager =
         (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
@@ -210,7 +225,7 @@ public class SpecialCharSequenceMgr {
 
         // setup the cookie fields
         sc.contactNum = index - 1;
-        sc.setTextField(textField);
+        sc.setListener(simContactNumberListener);
 
         // create the progress dialog
         sc.progressDialog = new ProgressDialog(context);
@@ -530,7 +545,7 @@ public class SpecialCharSequenceMgr {
    * Cookie object that contains everything we need to communicate to the handler's onQuery
    * Complete, as well as what we need in order to cancel the query (if requested).
    *
-   * <p>Note, access to the textField field is going to be synchronized, because the user can
+   * <p>Note, access to the listener field is going to be synchronized, because the user can
    * request a cancel at any time through the UI.
    */
   private static class SimContactQueryCookie implements DialogInterface.OnCancelListener {
@@ -542,8 +557,8 @@ public class SpecialCharSequenceMgr {
     private int token;
     private QueryHandler handler;
 
-    // The text field we're going to update
-    private EditText textField;
+    // Receives the number, unless the query is canceled first
+    private SimContactNumberListener listener;
 
     public SimContactQueryCookie(int number, QueryHandler handler, int token) {
       contactNum = number;
@@ -551,14 +566,12 @@ public class SpecialCharSequenceMgr {
       this.token = token;
     }
 
-    /** Synchronized getter for the EditText. */
-    public synchronized EditText getTextField() {
-      return textField;
+    public synchronized SimContactNumberListener getListener() {
+      return listener;
     }
 
-    /** Synchronized setter for the EditText. */
-    public synchronized void setTextField(EditText text) {
-      textField = text;
+    public synchronized void setListener(SimContactNumberListener listener) {
+      this.listener = listener;
     }
 
     /**
@@ -572,9 +585,9 @@ public class SpecialCharSequenceMgr {
         progressDialog.dismiss();
       }
 
-      // setting the textfield to null ensures that the UI does NOT get
+      // setting the listener to null ensures that the UI does NOT get
       // updated.
-      textField = null;
+      listener = null;
 
       // Cancel the operation if possible.
       handler.cancelOperation(token);
@@ -608,18 +621,18 @@ public class SpecialCharSequenceMgr {
         // close the progress dialog.
         sc.progressDialog.dismiss();
 
-        // get the EditText to update or see if the request was cancelled.
-        EditText text = sc.getTextField();
+        // get the listener to update or see if the request was cancelled.
+        SimContactNumberListener listener = sc.getListener();
 
-        // if the TextView is valid, and the cursor is valid and positionable on the
-        // Nth number, then we update the text field and display a toast indicating the
+        // if the listener is valid, and the cursor is valid and positionable on the
+        // Nth number, then we hand it the number and display a toast indicating the
         // caller name.
-        if ((c != null) && (text != null) && (c.moveToPosition(sc.contactNum))) {
+        if ((c != null) && (listener != null) && (c.moveToPosition(sc.contactNum))) {
           String name = c.getString(c.getColumnIndexOrThrow(ADN_NAME_COLUMN_NAME));
           String number = c.getString(c.getColumnIndexOrThrow(ADN_PHONE_NUMBER_COLUMN_NAME));
 
           // fill the text in.
-          text.getText().replace(0, 0, number);
+          listener.onSimContactNumber(number);
 
           // display the name as a toast
           Context context = sc.progressDialog.getContext();

@@ -258,6 +258,8 @@ class KeypadViewModelTest {
         viewModel.effects.test {
             viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
+            // Removing the first of the two ones leaves "1", which is checked like any other text.
+            assertEquals(KeypadScreenEffect.RunSpecialCode("1"), awaitItem())
             assertEquals(KeypadScreenEffect.CallVoicemail, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -381,6 +383,8 @@ class KeypadViewModelTest {
         viewModel.effects.test {
             viewModel.onAction(KeypadAction.CallClicked)
 
+            // The recalled number is checked for a code, as typed text is, but nothing is placed.
+            assertEquals(KeypadScreenEffect.RunSpecialCode("5551234"), awaitItem())
             expectNoEvents()
         }
     }
@@ -583,6 +587,75 @@ class KeypadViewModelTest {
         viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
 
         assertEquals("12", viewModel.uiState.value.digits)
+    }
+
+    // endregion
+
+    // region special codes
+
+    @Test
+    fun everyChangeTheUserTypesIsCheckedForASpecialCode() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.effects.test {
+            viewModel.press(KeypadKey.STAR, KeypadKey.POUND)
+
+            assertEquals(KeypadScreenEffect.RunSpecialCode("*"), awaitItem())
+            assertEquals(KeypadScreenEffect.RunSpecialCode("*#"), awaitItem())
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun emptyingTheFieldIsNotCheckedForASpecialCode() = runTest {
+        val viewModel = createViewModel()
+        viewModel.press(KeypadKey.ONE)
+
+        viewModel.effects.test {
+            viewModel.onAction(KeypadAction.DeleteClicked)
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun aNumberFromADialIntentIsNeverRunAsASpecialCode() = runTest {
+        coEvery { dialIntentNumber(any()) } returns "*#06#"
+        val viewModel = createViewModel()
+
+        viewModel.effects.test {
+            viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
+            // Typing onto it does not make it the user's either.
+            viewModel.press(KeypadKey.ONE)
+
+            expectNoEvents()
+        }
+        assertEquals("*#06#1", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun codesRunAgainOnceTheUserEmptiesAFieldADialIntentFilled() = runTest {
+        coEvery { dialIntentNumber(any()) } returns "555"
+        val viewModel = createViewModel()
+        viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
+
+        viewModel.effects.test {
+            viewModel.onAction(KeypadAction.DeleteLongPressed)
+            viewModel.press(KeypadKey.STAR)
+
+            assertEquals(KeypadScreenEffect.RunSpecialCode("*"), awaitItem())
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun aSimContactNumberGoesInFrontOfTheField() {
+        val viewModel = createViewModel()
+        viewModel.press(KeypadKey.NINE)
+
+        viewModel.insertSimContactNumber("555")
+
+        assertEquals("5559", viewModel.uiState.value.digits)
     }
 
     // endregion

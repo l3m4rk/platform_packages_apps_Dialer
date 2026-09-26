@@ -26,7 +26,9 @@ import com.android.dialer.callintent.CallInitiationType
 import com.android.dialer.callintent.CallIntentBuilder
 import com.android.dialer.common.Assert
 import com.android.dialer.common.FragmentUtils
+import com.android.dialer.common.LogUtil
 import com.android.dialer.dialpadview.DialpadFragment
+import com.android.dialer.dialpadview.SpecialCharSequenceMgr
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.keypad.ui.KeypadScreen
 import com.android.dialer.keypad.ui.keypadStrings
@@ -140,6 +142,13 @@ class KeypadFragment : Fragment() {
             viewModel.fillFromDialIntent(intent)
         }
         startedFromNewIntent = false
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Cancels a SIM contact lookup still in flight, so it does not try to dismiss its progress
+        // dialog after the activity has gone. DialpadFragment did the same.
+        SpecialCharSequenceMgr.cleanup()
     }
 
     override fun onStop() {
@@ -262,6 +271,26 @@ class KeypadFragment : Fragment() {
                 message = R.string.dialog_phone_call_prohibited_message,
                 tag = PROHIBITED_NUMBER_DIALOG_TAG,
             )
+            is KeypadScreenEffect.RunSpecialCode -> runSpecialCode(effect.input)
+        }
+    }
+
+    private fun runSpecialCode(input: String) {
+        // The lookup can outlive this fragment's view, so hold the activity-scoped view model
+        // rather than the fragment.
+        val handled = try {
+            SpecialCharSequenceMgr.handleChars(requireActivity(), input) { number ->
+                viewModel.insertSimContactNumber(number)
+            }
+        } catch (e: SecurityException) {
+            // Some codes need permissions only a privileged install holds. *#06# is the known one:
+            // getDeviceId needs READ_PRIVILEGED_PHONE_STATE since API 29, and throws before any
+            // dialog is shown. Unhandled, it crashed the dialer; now the code stays in the field.
+            LogUtil.w(TAG, "Cannot run the special code: $e")
+            false
+        }
+        if (handled) {
+            viewModel.clearDigits()
         }
     }
 
@@ -281,6 +310,8 @@ class KeypadFragment : Fragment() {
     private inline fun <reified T> parent(): T = FragmentUtils.getParentUnsafe(this, T::class.java)
 
     private companion object {
+        private const val TAG = "KeypadFragment"
+
         private const val KEY_IS_DIALPAD_SLIDE_UP = "pref_is_dialpad_slide_out"
 
         // Fragment tags for the error dialogs, unchanged from DialpadFragment.

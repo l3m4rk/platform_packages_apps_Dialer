@@ -27,4 +27,13 @@ internal sealed interface KeypadScreenEffect {
      * against dialing it by hand. The field has already been cleared.
      */
     data object ShowProhibitedNumberError : KeypadScreenEffect
+
+    /**
+     * The user typed [input]; if it is a special code such as `*#06#`, an MMI code or a SIM
+     * contact's position, act on it and then clear the field. Most codes need an `Activity`, to
+     * show a dialog or start one, which is why the fragment rather than the view model runs them.
+     */
+    data class RunSpecialCode(
+        val input: String,
+    ) : KeypadScreenEffect
 }

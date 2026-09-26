@@ -58,6 +58,27 @@ class DialpadDigitsTest {
     }
 
     @Test
+    fun insertAtStartIntoAnEmptyFieldLeavesTheCursorAtTheEnd() {
+        val digits = DialpadDigits()
+
+        digits.insertAtStart("555")
+
+        assertEquals("555", digits.text.value)
+        assertEquals(3, digits.selectionStart)
+    }
+
+    @Test
+    fun insertAtStartKeepsTheCursorAfterWhatWasTyped() {
+        val digits = DialpadDigits()
+        digits.append('9')
+
+        digits.insertAtStart("555")
+
+        assertEquals("5559", digits.text.value)
+        assertEquals(4, digits.selectionStart)
+    }
+
+    @Test
     fun deleteRemovesTheCharacterBeforeTheCursor() {
         val digits = DialpadDigits()
         digits.setText("123")
