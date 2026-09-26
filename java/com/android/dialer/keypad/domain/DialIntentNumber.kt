@@ -1,0 +1,106 @@
+package com.android.dialer.keypad.domain
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.telecom.PhoneAccount
+import android.telephony.PhoneNumberUtils
+import com.android.dialer.common.LogUtil
+import com.android.dialer.di.core.IoDispatcher
+import com.android.dialer.location.GeoUtil
+import com.android.dialer.phonenumberutil.PhoneNumberHelper
+import com.android.dialer.util.PermissionsUtil
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+
+/**
+ * The number a dial intent asks the keypad to show, formatted for the field, or `null` when the
+ * intent carries none.
+ */
+internal interface DialIntentNumber {
+    suspend operator fun invoke(intent: Intent): String?
+}
+
+/**
+ * Port of `DialpadFragment.fillDigitsIfNecessary` and `getFormattedDigits`.
+ *
+ * Two kinds of intent carry a number: a `tel:` link, and the legacy Contacts API item types the
+ * activity's manifest still accepts, whose number has to be read from the provider.
+ */
+internal class SystemDialIntentNumber @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+) : DialIntentNumber {
+
+    override suspend fun invoke(intent: Intent): String? = withContext(ioDispatcher) {
+        val uri = intent.data
+        when {
+            intent.action != Intent.ACTION_DIAL && intent.action != Intent.ACTION_VIEW -> null
+            uri == null -> null
+            uri.scheme == PhoneAccount.SCHEME_TEL -> numberFromTelUri(uri)
+            intent.type !in CONTACT_ITEM_TYPES -> null
+            !PermissionsUtil.hasContactsReadPermissions(context) -> null
+            else -> numberFromContact(uri)
+        }?.takeIf { number -> number.isNotEmpty() }
+    }
+
+    private fun numberFromTelUri(uri: Uri): String {
+        val converted = PhoneNumberUtils.convertKeypadLettersToDigits(
+            PhoneNumberUtils.replaceUnicodeDigits(uri.schemeSpecificPart.orEmpty()),
+        )
+        return format(dialString = converted, normalizedNumber = null)
+    }
+
+    /**
+     * The URI comes from whichever app sent the intent, so it may point at a provider this app
+     * cannot read, or at nothing at all. The fragment let either throw and crash the dialer; now it
+     * simply carries no number.
+     */
+    private fun numberFromContact(uri: Uri): String? = try {
+        context.contentResolver
+            .query(uri, arrayOf(COLUMN_NUMBER, COLUMN_NUMBER_KEY), null, null, null)
+            ?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    format(dialString = cursor.getString(0), normalizedNumber = cursor.getString(1))
+                } else {
+                    null
+                }
+            }
+    } catch (e: SecurityException) {
+        LogUtil.w(TAG, "Cannot read the contact: $e")
+        null
+    } catch (e: IllegalArgumentException) {
+        LogUtil.w(TAG, "Cannot read the contact: $e")
+        null
+    }
+
+    /** Formats the network portion of [dialString], keeping any pause or wait suffix as typed. */
+    private fun format(dialString: String?, normalizedNumber: String?): String {
+        val number = PhoneNumberUtils.extractNetworkPortion(dialString)
+        val postDial = PhoneNumberUtils.extractPostDialPortion(dialString).orEmpty()
+        return when {
+            number.isNullOrEmpty() -> postDial
+            else -> PhoneNumberHelper.formatNumber(
+                context,
+                number,
+                normalizedNumber,
+                GeoUtil.getCurrentCountryIso(context),
+            ) + postDial
+        }
+    }
+
+    private companion object {
+        private const val TAG = "SystemDialIntentNumber"
+
+        // android.provider.Contacts, deprecated since API 5, is spelled out rather than imported.
+        // These are the two item types the activity's DIAL intent filter declares.
+        private val CONTACT_ITEM_TYPES = setOf(
+            "vnd.android.cursor.item/person",
+            "vnd.android.cursor.item/phone",
+        )
+        private const val COLUMN_NUMBER = "number"
+        private const val COLUMN_NUMBER_KEY = "number_key"
+    }
+}

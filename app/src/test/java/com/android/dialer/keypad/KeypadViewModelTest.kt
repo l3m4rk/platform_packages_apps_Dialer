@@ -1,10 +1,12 @@
 package com.android.dialer.keypad
 
+import android.content.Intent
 import android.media.ToneGenerator
 import android.os.Build
 import app.cash.turbine.test
 import com.android.dialer.dialpadview.DialerPhoneNumberFormattingTextWatcher
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
+import com.android.dialer.keypad.domain.DialIntentNumber
 import com.android.dialer.keypad.domain.DtmfTonePlayer
 import com.android.dialer.keypad.domain.EmergencyCallWarning
 import com.android.dialer.keypad.domain.LastOutgoingCall
@@ -21,6 +23,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -48,6 +51,7 @@ class KeypadViewModelTest {
     private val phoneNumberFormatting = mockk<PhoneNumberFormatting>()
     private val lastOutgoingCall = mockk<LastOutgoingCall>()
     private val checkIfNumberIsProhibited = mockk<CheckIfNumberIsProhibited>()
+    private val dialIntentNumber = mockk<DialIntentNumber>()
 
     @Before
     fun setUp() {
@@ -55,6 +59,7 @@ class KeypadViewModelTest {
         coEvery { phoneNumberFormatting.createWatcher() } returns null
         coEvery { lastOutgoingCall() } returns null
         every { checkIfNumberIsProhibited(any()) } returns false
+        coEvery { dialIntentNumber(any()) } returns null
     }
 
     // region typing
@@ -517,6 +522,71 @@ class KeypadViewModelTest {
 
     // endregion
 
+    // region dial intent
+
+    @Test
+    fun aDialIntentReplacesWhatWasTyped() {
+        coEvery { dialIntentNumber(any()) } returns "(555) 123-4567"
+        val viewModel = createViewModel()
+        viewModel.press(KeypadKey.NINE, KeypadKey.NINE)
+
+        viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
+
+        assertEquals("(555) 123-4567", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun keysTypedAfterADialIntentGoAtTheEnd() {
+        coEvery { dialIntentNumber(any()) } returns "555"
+        val viewModel = createViewModel()
+
+        viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
+        viewModel.press(KeypadKey.ONE)
+
+        assertEquals("5551", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun aNewerDialIntentWinsOverOneStillBeingRead() {
+        val slowContact = CompletableDeferred<String?>()
+        val contactIntent = Intent(Intent.ACTION_DIAL)
+        val telIntent = Intent(Intent.ACTION_VIEW)
+        coEvery { dialIntentNumber(contactIntent) } coAnswers { slowContact.await() }
+        coEvery { dialIntentNumber(telIntent) } returns "555-1234"
+        val viewModel = createViewModel()
+
+        viewModel.fillFromDialIntent(contactIntent)
+        viewModel.fillFromDialIntent(telIntent)
+        slowContact.complete("(650) 253-0000")
+
+        assertEquals("555-1234", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun clearingCancelsADialIntentStillBeingRead() {
+        val slowContact = CompletableDeferred<String?>()
+        coEvery { dialIntentNumber(any()) } coAnswers { slowContact.await() }
+        val viewModel = createViewModel()
+
+        viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
+        viewModel.clearDigits()
+        slowContact.complete("(650) 253-0000")
+
+        assertEquals("", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun aDialIntentWithoutANumberLeavesTheFieldAlone() {
+        val viewModel = createViewModel()
+        viewModel.press(KeypadKey.ONE, KeypadKey.TWO)
+
+        viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
+
+        assertEquals("12", viewModel.uiState.value.digits)
+    }
+
+    // endregion
+
     private fun createViewModel() = KeypadViewModel(
         tonePlayer = tonePlayer,
         voicemailAvailability = voicemailAvailability,
@@ -524,6 +594,7 @@ class KeypadViewModelTest {
         phoneNumberFormatting = phoneNumberFormatting,
         lastOutgoingCall = lastOutgoingCall,
         checkIfNumberIsProhibited = checkIfNumberIsProhibited,
+        dialIntentNumber = dialIntentNumber,
     )
 
     private fun KeypadViewModel.press(vararg keys: KeypadKey) {

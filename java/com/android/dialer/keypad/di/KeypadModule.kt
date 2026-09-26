@@ -2,10 +2,12 @@ package com.android.dialer.keypad.di
 
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibitedImpl
+import com.android.dialer.keypad.domain.DialIntentNumber
 import com.android.dialer.keypad.domain.DtmfTonePlayer
 import com.android.dialer.keypad.domain.EmergencyCallWarning
 import com.android.dialer.keypad.domain.LastOutgoingCall
 import com.android.dialer.keypad.domain.PhoneNumberFormatting
+import com.android.dialer.keypad.domain.SystemDialIntentNumber
 import com.android.dialer.keypad.domain.SystemDtmfTonePlayer
 import com.android.dialer.keypad.domain.SystemEmergencyCallWarning
 import com.android.dialer.keypad.domain.SystemLastOutgoingCall
@@ -54,4 +56,7 @@ internal interface KeypadModule {
     fun bindCheckIfNumberIsProhibited(
         check: CheckIfNumberIsProhibitedImpl,
     ): CheckIfNumberIsProhibited
+
+    @Binds
+    fun bindDialIntentNumber(number: SystemDialIntentNumber): DialIntentNumber
 }

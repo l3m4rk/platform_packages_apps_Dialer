@@ -1,9 +1,11 @@
 package com.android.dialer.keypad
 
+import android.content.Intent
 import android.media.ToneGenerator
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
+import com.android.dialer.keypad.domain.DialIntentNumber
 import com.android.dialer.keypad.domain.DtmfTonePlayer
 import com.android.dialer.keypad.domain.EmergencyCallWarning
 import com.android.dialer.keypad.domain.LastOutgoingCall
@@ -19,6 +21,7 @@ import com.android.dialer.keypad.model.PAUSE
 import com.android.dialer.keypad.model.WAIT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +37,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+// An injected constructor is as long as its dependencies.
+@Suppress("LongParameterList")
 @HiltViewModel
 internal class KeypadViewModel @Inject constructor(
     private val tonePlayer: DtmfTonePlayer,
@@ -42,6 +47,7 @@ internal class KeypadViewModel @Inject constructor(
     private val phoneNumberFormatting: PhoneNumberFormatting,
     private val lastOutgoingCall: LastOutgoingCall,
     private val checkIfNumberIsProhibited: CheckIfNumberIsProhibited,
+    private val dialIntentNumber: DialIntentNumber,
 ) : ViewModel(),
     KeypadScreenModel {
 
@@ -61,6 +67,12 @@ internal class KeypadViewModel @Inject constructor(
      * call log holds none or cannot be read.
      */
     private var lastDialedNumber: String? = null
+
+    /**
+     * The dial intent still being read, if any. Cancelled by a newer intent or a clear, either of
+     * which would otherwise be overwritten when it lands.
+     */
+    private var fillJob: Job? = null
 
     /** Re-read by [refreshEmergencyCallWarning] rather than queried while mapping state. */
     private val isEmergencyCallWarningActive = MutableStateFlow(false)
@@ -129,7 +141,15 @@ internal class KeypadViewModel @Inject constructor(
     }
 
     override fun clearDigits() {
+        fillJob?.cancel()
         digits.clear()
+    }
+
+    override fun fillFromDialIntent(intent: Intent) {
+        fillJob?.cancel()
+        fillJob = viewModelScope.launch {
+            dialIntentNumber(intent)?.let(::showNumber)
+        }
     }
 
     override fun onAction(action: KeypadAction) {
@@ -216,10 +236,14 @@ internal class KeypadViewModel @Inject constructor(
         if (number.isNullOrEmpty()) {
             tonePlayer.play(tone = ToneGenerator.TONE_PROP_NACK, durationMs = TONE_LENGTH_MS)
         } else {
-            digits.setText(number)
-            // Past the end of the *formatted* text, which is longer than what was recalled.
-            digits.setSelection(digits.length)
+            showNumber(number)
         }
+    }
+
+    private fun showNumber(number: String) {
+        digits.setText(number)
+        // Past the end of the *formatted* text, which can be longer than what was set.
+        digits.setSelection(digits.length)
     }
 
     private fun refreshEmergencyCallWarning() {

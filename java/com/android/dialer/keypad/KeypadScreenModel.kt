@@ -1,5 +1,6 @@
 package com.android.dialer.keypad
 
+import android.content.Intent
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.keypad.model.KeypadUiState
@@ -29,6 +30,12 @@ internal interface KeypadScreenModel {
      * a [KeypadAction], which only ever describes something the user did.
      */
     fun clearDigits()
+
+    /**
+     * Shows the number [intent] carries, replacing whatever was typed. Does nothing when it carries
+     * none. The host decides which intents are new enough to apply.
+     */
+    fun fillFromDialIntent(intent: Intent)
 
     fun onAction(action: KeypadAction)
 }

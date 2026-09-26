@@ -1,5 +1,6 @@
 package com.android.dialer.keypad
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -109,12 +110,36 @@ class KeypadFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        configureFromIntent(requireActivity().intent)
         // The framework does not call onHiddenChanged on the first attach, so do it here, exactly
         // as DialpadFragment did; without it the host never slides the keypad up.
         if (firstLaunch) {
             onHiddenChanged(false)
         }
         firstLaunch = false
+    }
+
+    /**
+     * Port of `DialpadFragment.configureScreenFromIntent`, less its dialpad chooser, which no live
+     * host shows.
+     *
+     * Only an intent that is new to the keypad fills it: the activity keeps its intent across
+     * resumes, and refilling from it would overwrite what the user typed since.
+     */
+    private fun configureFromIntent(intent: Intent?) {
+        if (intent == null) {
+            return
+        }
+        // Add call brings up an empty keypad; nothing to fill. The flag is left set, as
+        // DialpadFragment left it.
+        if (DialpadFragment.isAddCallMode(intent)) {
+            startedFromNewIntent = true
+            return
+        }
+        if (firstLaunch || startedFromNewIntent) {
+            viewModel.fillFromDialIntent(intent)
+        }
+        startedFromNewIntent = false
     }
 
     override fun onStop() {
