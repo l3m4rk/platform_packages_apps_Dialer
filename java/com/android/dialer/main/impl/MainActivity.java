@@ -32,9 +32,12 @@ import com.android.dialer.main.MainActivityPeer;
 import com.android.dialer.main.impl.bottomnav.BottomNavBar.TabIndex;
 import com.android.dialer.util.TransactionSafeActivity;
 import com.android.dialer.util.ViewUtil;
+import dagger.hilt.android.AndroidEntryPoint;
 
 /** This is the main activity for dialer. It hosts favorites, call log, search, dialpad, etc... */
 // TODO(calderwoodra): Do not extend TransactionSafeActivity after new SpeedDial is launched
+// Entry point so the Compose keypad can obtain its Hilt view model from this activity's store.
+@AndroidEntryPoint
 public class MainActivity extends TransactionSafeActivity
     implements MainActivityPeer.PeerSupplier,
         // TODO(calderwoodra): remove these 2 interfaces when we migrate to new speed dial fragment

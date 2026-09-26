@@ -140,6 +140,16 @@ class KeypadViewModelTest {
     }
 
     @Test
+    fun theHostCanClearTheField() {
+        val viewModel = createViewModel()
+        viewModel.press(KeypadKey.ONE, KeypadKey.TWO)
+
+        viewModel.clearDigits()
+
+        assertEquals("", viewModel.uiState.value.digits)
+    }
+
+    @Test
     fun deleteAndOverflowFollowWhetherTheFieldHasContent() {
         val viewModel = createViewModel()
         assertFalse(viewModel.uiState.value.isDeleteEnabled)

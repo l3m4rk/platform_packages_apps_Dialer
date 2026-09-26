@@ -24,5 +24,11 @@ internal interface KeypadScreenModel {
 
     fun onHostStopped()
 
+    /**
+     * Empties the field on the host's behalf, as when it closes search. A host command rather than
+     * a [KeypadAction], which only ever describes something the user did.
+     */
+    fun clearDigits()
+
     fun onAction(action: KeypadAction)
 }

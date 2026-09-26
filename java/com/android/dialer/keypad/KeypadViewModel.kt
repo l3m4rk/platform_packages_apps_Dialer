@@ -128,6 +128,10 @@ internal class KeypadViewModel @Inject constructor(
         pressedKeys.clear()
     }
 
+    override fun clearDigits() {
+        digits.clear()
+    }
+
     override fun onAction(action: KeypadAction) {
         when (action) {
             is KeypadAction.KeyPressed -> onKeyPressed(action.key)
