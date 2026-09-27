@@ -13,8 +13,10 @@ import com.android.dialer.keypad.domain.SystemEmergencyCallWarning
 import com.android.dialer.keypad.domain.SystemLastOutgoingCall
 import com.android.dialer.keypad.domain.SystemPhoneNumberFormatting
 import com.android.dialer.keypad.domain.SystemToneGeneratorFactory
+import com.android.dialer.keypad.domain.SystemVibration
 import com.android.dialer.keypad.domain.SystemVoicemailAvailability
 import com.android.dialer.keypad.domain.ToneGeneratorFactory
+import com.android.dialer.keypad.domain.Vibration
 import com.android.dialer.keypad.domain.VoicemailAvailability
 import dagger.Binds
 import dagger.Module
@@ -59,4 +61,7 @@ internal interface KeypadModule {
 
     @Binds
     fun bindDialIntentNumber(number: SystemDialIntentNumber): DialIntentNumber
+
+    @Binds
+    fun bindVibration(vibration: SystemVibration): Vibration
 }

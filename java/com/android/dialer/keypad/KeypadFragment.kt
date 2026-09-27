@@ -192,8 +192,8 @@ class KeypadFragment : Fragment() {
      * Receives the normalized query from the host on every change.
      *
      * `DialpadFragment` named this `process_quote_emergency_unquote` and ran its pseudo-emergency
-     * Easter egg from it. The Easter egg has not been ported yet; this keeps the host contract
-     * intact until it is.
+     * Easter egg from it. The keypad now spots the number itself, from its own digits, so this is
+     * left empty; it only keeps the host contract intact until the host stops calling it.
      */
     @Suppress("UNUSED_PARAMETER")
     fun processPseudoEmergencyQuery(query: String) = Unit

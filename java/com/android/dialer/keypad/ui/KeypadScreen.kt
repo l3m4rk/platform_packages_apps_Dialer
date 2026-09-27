@@ -69,7 +69,11 @@ internal fun KeypadScreen(
 
             KeypadGrid(strings = strings, onAction = onAction)
 
-            CallButton(strings = strings, onAction = onAction)
+            CallButton(
+                isPseudoEmergencyNumber = uiState.isPseudoEmergencyNumber,
+                strings = strings,
+                onAction = onAction,
+            )
         }
     }
 }
@@ -77,6 +81,7 @@ internal fun KeypadScreen(
 /** A labeled green pill, centered under the keys, sized to its content rather than the row. */
 @Composable
 private fun CallButton(
+    isPseudoEmergencyNumber: Boolean,
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
 ) {
@@ -87,7 +92,7 @@ private fun CallButton(
             .heightIn(min = CALL_BUTTON_MIN_HEIGHT),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = DialerColors.CallContainer,
+            containerColor = callButtonContainerColor(isPseudoEmergencyNumber),
             contentColor = DialerColors.OnCallContainer,
         ),
         contentPadding = PaddingValues(horizontal = CALL_BUTTON_HORIZONTAL_PADDING),

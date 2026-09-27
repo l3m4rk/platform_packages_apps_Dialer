@@ -11,6 +11,7 @@ import com.android.dialer.keypad.domain.EmergencyCallWarning
 import com.android.dialer.keypad.domain.LastOutgoingCall
 import com.android.dialer.keypad.domain.PhoneNumberFormatting
 import com.android.dialer.keypad.domain.TONE_LENGTH_MS
+import com.android.dialer.keypad.domain.Vibration
 import com.android.dialer.keypad.domain.VoicemailAvailability
 import com.android.dialer.keypad.model.DialpadDigits
 import com.android.dialer.keypad.model.KeypadAction
@@ -18,10 +19,13 @@ import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.keypad.model.KeypadUiState
 import com.android.dialer.keypad.model.PAUSE
+import com.android.dialer.keypad.model.PseudoEmergency
 import com.android.dialer.keypad.model.WAIT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +52,7 @@ internal class KeypadViewModel @Inject constructor(
     private val lastOutgoingCall: LastOutgoingCall,
     private val checkIfNumberIsProhibited: CheckIfNumberIsProhibited,
     private val dialIntentNumber: DialIntentNumber,
+    private val vibration: Vibration,
 ) : ViewModel(),
     KeypadScreenModel {
 
@@ -82,6 +87,9 @@ internal class KeypadViewModel @Inject constructor(
      */
     private var isFilledByIntent = false
 
+    /** Buzzes along with the pseudo-emergency pulse, from when the number is spelled until it isn't. */
+    private var pseudoEmergencyPulses: Job? = null
+
     /** Re-read by [refreshEmergencyCallWarning] rather than queried while mapping state. */
     private val isEmergencyCallWarningActive = MutableStateFlow(false)
 
@@ -103,6 +111,7 @@ internal class KeypadViewModel @Inject constructor(
             isOverflowVisible = text.isNotEmpty(),
             // The hint renders inside the empty digits field, so it has nowhere else to go.
             showsEmergencyCallWarning = text.isEmpty() && warningActive,
+            isPseudoEmergencyNumber = PseudoEmergency.matches(text),
         )
     }
         .stateIn(
@@ -142,6 +151,14 @@ internal class KeypadViewModel @Inject constructor(
                     text.isEmpty() -> isFilledByIntent = false
                     !isFilledByIntent -> emitEffect(KeypadScreenEffect.RunSpecialCode(text))
                 }
+            }
+            .launchIn(viewModelScope)
+
+        digits.text
+            .map(PseudoEmergency::matches)
+            .distinctUntilChanged()
+            .onEach { matches ->
+                if (matches) startPseudoEmergencyPulses() else stopPseudoEmergencyPulses()
             }
             .launchIn(viewModelScope)
     }
@@ -271,6 +288,36 @@ internal class KeypadViewModel @Inject constructor(
         digits.setText(number)
         // Past the end of the *formatted* text, which can be longer than what was set.
         digits.setSelection(digits.length)
+    }
+
+    /** A buzz at every repeat of the call button's pulse, timed as `PseudoEmergencyAnimator` did. */
+    private fun startPseudoEmergencyPulses() {
+        pseudoEmergencyPulses = viewModelScope.launch {
+            repeat(PseudoEmergency.PULSES - 1) {
+                delay(PseudoEmergency.PULSE_MS.milliseconds)
+                vibration.vibrate(PseudoEmergency.PULSE_MS)
+            }
+            delay(PseudoEmergency.PULSE_MS.milliseconds)
+            buzzOnceMore()
+        }
+    }
+
+    private fun stopPseudoEmergencyPulses() {
+        val pulses = pseudoEmergencyPulses ?: return
+        pseudoEmergencyPulses = null
+        // Cut short, the animator still ran its end callback, and with it the last buzz. Once the
+        // pulse has finished, that buzz is already on its way and must not be doubled.
+        if (pulses.isActive) {
+            pulses.cancel()
+            buzzOnceMore()
+        }
+    }
+
+    private fun buzzOnceMore() {
+        viewModelScope.launch {
+            delay(PseudoEmergency.FINAL_BUZZ_DELAY_MS.milliseconds)
+            vibration.vibrate(PseudoEmergency.PULSE_MS)
+        }
     }
 
     private fun refreshEmergencyCallWarning() {

@@ -13,10 +13,12 @@ import com.android.dialer.keypad.domain.LastOutgoingCall
 import com.android.dialer.keypad.domain.PhoneNumberFormatting
 import com.android.dialer.keypad.domain.TONE_LENGTH_INFINITE
 import com.android.dialer.keypad.domain.TONE_LENGTH_MS
+import com.android.dialer.keypad.domain.Vibration
 import com.android.dialer.keypad.domain.VoicemailAvailability
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadScreenEffect
+import com.android.dialer.keypad.model.PseudoEmergency
 import com.android.dialer.testutil.MainDispatcherRule
 import io.mockk.clearMocks
 import io.mockk.coEvery
@@ -52,6 +54,7 @@ class KeypadViewModelTest {
     private val lastOutgoingCall = mockk<LastOutgoingCall>()
     private val checkIfNumberIsProhibited = mockk<CheckIfNumberIsProhibited>()
     private val dialIntentNumber = mockk<DialIntentNumber>()
+    private val vibration = mockk<Vibration>(relaxed = true)
 
     @Before
     fun setUp() {
@@ -660,6 +663,103 @@ class KeypadViewModelTest {
 
     // endregion
 
+    // region pseudo-emergency
+
+    @Test
+    fun spellingThePseudoEmergencyNumberFlagsIt() {
+        val viewModel = createViewModel()
+
+        viewModel.type(PseudoEmergency.NUMBER)
+
+        assertTrue(viewModel.uiState.value.isPseudoEmergencyNumber)
+    }
+
+    @Test
+    fun theFlagClearsAsSoonAsTheNumberIsEdited() {
+        val viewModel = createViewModel()
+        viewModel.type(PseudoEmergency.NUMBER)
+
+        viewModel.onAction(KeypadAction.DeleteClicked)
+
+        assertFalse(viewModel.uiState.value.isPseudoEmergencyNumber)
+    }
+
+    @Test
+    fun thePulseBuzzesAtEveryRepeatAndOnceMoreASecondAfterItEnds() {
+        val viewModel = createViewModel()
+
+        viewModel.type(PseudoEmergency.NUMBER)
+
+        // Six repeats, one every leg.
+        repeat(6) { index ->
+            verify(exactly = index) { vibration.vibrate(PseudoEmergency.PULSE_MS) }
+            advanceTimeBy(PseudoEmergency.PULSE_MS)
+        }
+        verify(exactly = 6) { vibration.vibrate(PseudoEmergency.PULSE_MS) }
+
+        // The seventh leg ends the pulse; the last buzz follows a second later.
+        advanceTimeBy(PseudoEmergency.PULSE_MS + PseudoEmergency.FINAL_BUZZ_DELAY_MS - 1)
+        verify(exactly = 6) { vibration.vibrate(PseudoEmergency.PULSE_MS) }
+        advanceTimeBy(1)
+        verify(exactly = 7) { vibration.vibrate(PseudoEmergency.PULSE_MS) }
+
+        advanceTimeBy(ONE_MINUTE_MS)
+        verify(exactly = 7) { vibration.vibrate(any()) }
+    }
+
+    @Test
+    fun editingTheNumberMidPulseStopsItButStillBuzzesOnceMore() {
+        val viewModel = createViewModel()
+
+        viewModel.type(PseudoEmergency.NUMBER)
+        advanceTimeBy(PseudoEmergency.PULSE_MS * 2)
+        verify(exactly = 2) { vibration.vibrate(any()) }
+
+        viewModel.onAction(KeypadAction.DeleteClicked)
+        advanceTimeBy(PseudoEmergency.FINAL_BUZZ_DELAY_MS)
+
+        verify(exactly = 3) { vibration.vibrate(any()) }
+        advanceTimeBy(ONE_MINUTE_MS)
+        verify(exactly = 3) { vibration.vibrate(any()) }
+    }
+
+    @Test
+    fun editingTheNumberAfterThePulseDoesNotBuzzAgain() {
+        val viewModel = createViewModel()
+        viewModel.type(PseudoEmergency.NUMBER)
+        advanceTimeBy(PseudoEmergency.PULSE_MS * PseudoEmergency.PULSES)
+
+        viewModel.onAction(KeypadAction.DeleteClicked)
+        advanceTimeBy(ONE_MINUTE_MS)
+
+        // Six repeats and the one after the end; the edit adds nothing.
+        verify(exactly = 7) { vibration.vibrate(any()) }
+    }
+
+    @Test
+    fun otherNumbersNeverBuzz() {
+        val viewModel = createViewModel()
+
+        viewModel.type("0118999881999119725")
+        advanceTimeBy(ONE_MINUTE_MS)
+
+        verify(exactly = 0) { vibration.vibrate(any()) }
+    }
+
+    // endregion
+
+    private fun advanceTimeBy(millis: Long) {
+        mainDispatcherRule.testDispatcher.scheduler.apply {
+            advanceTimeBy(millis)
+            runCurrent()
+        }
+    }
+
+    private fun KeypadViewModel.type(number: String) {
+        val keys = number.map { char -> KeypadKey.entries.first { key -> key.char == char } }
+        press(*keys.toTypedArray())
+    }
+
     private fun createViewModel() = KeypadViewModel(
         tonePlayer = tonePlayer,
         voicemailAvailability = voicemailAvailability,
@@ -668,6 +768,7 @@ class KeypadViewModelTest {
         lastOutgoingCall = lastOutgoingCall,
         checkIfNumberIsProhibited = checkIfNumberIsProhibited,
         dialIntentNumber = dialIntentNumber,
+        vibration = vibration,
     )
 
     private fun KeypadViewModel.press(vararg keys: KeypadKey) {
@@ -675,5 +776,9 @@ class KeypadViewModelTest {
             onAction(KeypadAction.KeyPressed(key))
             onAction(KeypadAction.KeyReleased(key))
         }
+    }
+
+    private companion object {
+        private const val ONE_MINUTE_MS = 60_000L
     }
 }

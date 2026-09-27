@@ -16,4 +16,6 @@ internal data class KeypadUiState(
     val isOverflowVisible: Boolean = false,
     /** Shows the "can't make emergency calls over wifi" hint in place of the empty digits field. */
     val showsEmergencyCallWarning: Boolean = false,
+    /** The field spells [PseudoEmergency.NUMBER], so the call button pulses. */
+    val isPseudoEmergencyNumber: Boolean = false,
 )
