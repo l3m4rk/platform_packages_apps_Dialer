@@ -12,7 +12,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadKey
@@ -87,7 +86,9 @@ internal fun keyEntranceTiming(key: KeypadKey, layout: KeyEntranceLayout): KeyEn
 @Composable
 internal fun keyEntranceLayout(): KeyEntranceLayout = when {
     !isLandscape() -> KeyEntranceLayout.PORTRAIT
-    LocalLayoutDirection.current == LayoutDirection.Rtl -> KeyEntranceLayout.LANDSCAPE_RTL
+    // The locale, not LocalLayoutDirection: the keys themselves are pinned left-to-right, but the
+    // legacy keypad took the entrance's side from the language, as this does.
+    localeLayoutDirection() == LayoutDirection.Rtl -> KeyEntranceLayout.LANDSCAPE_RTL
     else -> KeyEntranceLayout.LANDSCAPE_LTR
 }
 

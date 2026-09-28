@@ -21,9 +21,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadUiState
@@ -69,25 +72,51 @@ internal fun KeypadScreen(
         color = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = SHEET_HORIZONTAL_PADDING, vertical = SHEET_VERTICAL_PADDING)
-                .then(if (isLandscape) Modifier.fillMaxHeight() else Modifier),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(SECTION_SPACING),
-        ) {
-            KeypadDigitsRow(uiState = uiState, strings = strings, onAction = onAction)
-
-            KeypadGrid(
+        // A keypad reads 1 2 3 in every language, and backspace stays on the right; the legacy
+        // dialpad_view was pinned layoutDirection="ltr" for the same reason. The surrounding sheet,
+        // its placement and its rounded side, still follow the language.
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            KeypadContent(
+                uiState = uiState,
                 strings = strings,
                 onAction = onAction,
-                // Landscape is short: the keys share what height is left rather than asking for
-                // their own, which is what pushed the call button off the screen.
-                modifier = if (isLandscape) Modifier.weight(1f) else Modifier,
-                isCompact = isLandscape,
+                isLandscape = isLandscape,
                 entranceState = entranceState,
             )
+        }
+    }
+}
 
+@Composable
+private fun KeypadContent(
+    uiState: KeypadUiState,
+    strings: KeypadStrings,
+    onAction: (KeypadAction) -> Unit,
+    isLandscape: Boolean,
+    entranceState: KeypadEntranceState,
+) {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = SHEET_HORIZONTAL_PADDING, vertical = SHEET_VERTICAL_PADDING)
+            .then(if (isLandscape) Modifier.fillMaxHeight() else Modifier),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(SECTION_SPACING),
+    ) {
+        KeypadDigitsRow(uiState = uiState, strings = strings, onAction = onAction)
+
+        KeypadGrid(
+            strings = strings,
+            onAction = onAction,
+            // Landscape is short: the keys share what height is left rather than asking for
+            // their own, which is what pushed the call button off the screen.
+            modifier = if (isLandscape) Modifier.weight(1f) else Modifier,
+            isCompact = isLandscape,
+            entranceState = entranceState,
+        )
+
+        // Outside the pin, like the legacy call button, which sat in the fragment's own layout
+        // rather than in dialpad_view: its icon leads its label in the language's direction.
+        CompositionLocalProvider(LocalLayoutDirection provides localeLayoutDirection()) {
             CallButton(
                 isPseudoEmergencyNumber = uiState.isPseudoEmergencyNumber,
                 strings = strings,

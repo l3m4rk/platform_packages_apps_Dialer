@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadKey
+import com.android.dialer.keypad.model.KeypadUiState
 import com.android.dialer.testutil.composeActivityRule
 import com.android.dialer.theme.compose.DialerTheme
 import org.junit.Assert.assertEquals
@@ -90,6 +91,50 @@ class KeyEntranceTest {
         assertDp(topOf(KeypadKey.FIVE), early)
     }
 
+    @Test
+    @Config(qualifiers = "ar-ldrtl-w891dp-h411dp-land")
+    fun inARightToLeftLandscapeTheKeysComeFromTheLeft() {
+        // The whole screen, which pins its keys left-to-right: the entrance must still follow the
+        // language, not the pin.
+        composeRule.setContent {
+            DialerTheme {
+                KeypadScreen(
+                    uiState = KeypadUiState(),
+                    strings = STRINGS,
+                    onAction = {},
+                    entranceState = entranceState,
+                )
+            }
+        }
+        composeRule.mainClock.autoAdvance = false
+        val resting = leftOf(KeypadKey.THREE)
+
+        play()
+
+        assertDp(resting - KEY_ENTRANCE_DISTANCE, leftOf(KeypadKey.THREE))
+    }
+
+    @Test
+    @Config(qualifiers = "w891dp-h411dp-land")
+    fun inALeftToRightLandscapeTheKeysComeFromTheRight() {
+        composeRule.setContent {
+            DialerTheme {
+                KeypadScreen(
+                    uiState = KeypadUiState(),
+                    strings = STRINGS,
+                    onAction = {},
+                    entranceState = entranceState,
+                )
+            }
+        }
+        composeRule.mainClock.autoAdvance = false
+        val resting = leftOf(KeypadKey.ONE)
+
+        play()
+
+        assertDp(resting + KEY_ENTRANCE_DISTANCE, leftOf(KeypadKey.ONE))
+    }
+
     private fun render() {
         composeRule.setContent {
             DialerTheme {
@@ -105,6 +150,9 @@ class KeyEntranceTest {
         Snapshot.sendApplyNotifications()
         advanceFramesBy(FRAME_MS * 2)
     }
+
+    private fun leftOf(key: KeypadKey): Dp =
+        composeRule.onNodeWithTag(keypadKeyTestTag(key)).getBoundsInRoot().left
 
     private fun topOf(key: KeypadKey): Dp =
         composeRule.onNodeWithTag(keypadKeyTestTag(key)).getBoundsInRoot().top

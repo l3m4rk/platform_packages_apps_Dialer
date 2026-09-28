@@ -91,6 +91,51 @@ class KeypadPlacementTest {
     }
 
     @Test
+    fun theKeysStillReadLeftToRightInARightToLeftLocale() {
+        render(layoutDirection = LayoutDirection.Rtl)
+
+        assertLeftToRight(KeypadKey.ONE, KeypadKey.TWO, KeypadKey.THREE)
+        assertLeftToRight(KeypadKey.STAR, KeypadKey.ZERO, KeypadKey.POUND)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-port")
+    fun theKeysStillReadLeftToRightInARightToLeftLocaleInPortrait() {
+        render(layoutDirection = LayoutDirection.Rtl)
+
+        assertLeftToRight(KeypadKey.ONE, KeypadKey.TWO, KeypadKey.THREE)
+    }
+
+    @Test
+    fun backspaceStaysOnTheRightInARightToLeftLocale() {
+        render(layoutDirection = LayoutDirection.Rtl)
+
+        val digits = composeRule.onNodeWithTag(KEYPAD_DIGITS_TEST_TAG).getBoundsInRoot()
+        val delete = composeRule.onNodeWithTag(KEYPAD_DELETE_TEST_TAG).getBoundsInRoot()
+        val overflow = composeRule.onNodeWithTag(KEYPAD_OVERFLOW_TEST_TAG).getBoundsInRoot()
+
+        assertTrue("backspace right of the number", delete.left >= digits.right)
+        assertTrue("overflow left of the number", overflow.right <= digits.left)
+    }
+
+    @Test
+    @Config(qualifiers = "ar-ldrtl-w411dp-h891dp-port")
+    fun theCallButtonFollowsTheLanguageInARightToLeftLocale() {
+        render(layoutDirection = LayoutDirection.Rtl)
+
+        // The icon leads, so on the right; the label follows to its left.
+        assertTrue("label left of centre", callLabelCentre() < callButtonCentre())
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-port")
+    fun theCallButtonLeadsWithItsIconInALeftToRightLocale() {
+        render()
+
+        assertTrue("label right of centre", callLabelCentre() > callButtonCentre())
+    }
+
+    @Test
     fun landscapeKeysPutTheLettersBesideTheDigit() {
         render()
         val key = keypadKeyTestTag(KeypadKey.TWO)
@@ -149,6 +194,27 @@ class KeypadPlacementTest {
                     }
                 }
             }
+        }
+    }
+
+    private fun callButtonCentre(): Dp = composeRule
+        .onNodeWithTag(KEYPAD_CALL_TEST_TAG)
+        .getBoundsInRoot()
+        .let { (it.left + it.right) / 2 }
+
+    private fun callLabelCentre(): Dp = composeRule
+        .onNode(
+            matcher = hasText(STRINGS.call) and hasAnyAncestor(hasTestTag(KEYPAD_CALL_TEST_TAG)),
+            useUnmergedTree = true,
+        )
+        .getBoundsInRoot()
+        .let { (it.left + it.right) / 2 }
+
+    private fun assertLeftToRight(vararg keys: KeypadKey) {
+        keys.toList().zipWithNext().forEach { (left, right) ->
+            val leftBounds = composeRule.onNodeWithTag(keypadKeyTestTag(left)).getBoundsInRoot()
+            val rightBounds = composeRule.onNodeWithTag(keypadKeyTestTag(right)).getBoundsInRoot()
+            assertTrue("$left left of $right", leftBounds.right <= rightBounds.left)
         }
     }
 

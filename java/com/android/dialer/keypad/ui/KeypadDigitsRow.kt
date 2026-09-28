@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -144,32 +146,36 @@ private fun OverflowButton(
             )
         }
 
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(text = strings.addPause) },
-                modifier = Modifier.testTag(KEYPAD_OVERFLOW_PAUSE_TEST_TAG),
-                onClick = {
-                    expanded = false
-                    onAction(KeypadAction.PauseClicked)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(text = strings.addWait) },
-                modifier = Modifier.testTag(KEYPAD_OVERFLOW_WAIT_TEST_TAG),
-                onClick = {
-                    expanded = false
-                    onAction(KeypadAction.WaitClicked)
-                },
-            )
-            if (uiState.isCallWithNoteAvailable) {
+        // Out of the keypad's left-to-right pin: the menu is text, and follows the language, as the
+        // legacy PopupMenu did.
+        CompositionLocalProvider(LocalLayoutDirection provides localeLayoutDirection()) {
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 DropdownMenuItem(
-                    text = { Text(text = strings.callWithNote) },
-                    modifier = Modifier.testTag(KEYPAD_OVERFLOW_CALL_WITH_NOTE_TEST_TAG),
+                    text = { Text(text = strings.addPause) },
+                    modifier = Modifier.testTag(KEYPAD_OVERFLOW_PAUSE_TEST_TAG),
                     onClick = {
                         expanded = false
-                        onAction(KeypadAction.CallWithNoteClicked)
+                        onAction(KeypadAction.PauseClicked)
                     },
                 )
+                DropdownMenuItem(
+                    text = { Text(text = strings.addWait) },
+                    modifier = Modifier.testTag(KEYPAD_OVERFLOW_WAIT_TEST_TAG),
+                    onClick = {
+                        expanded = false
+                        onAction(KeypadAction.WaitClicked)
+                    },
+                )
+                if (uiState.isCallWithNoteAvailable) {
+                    DropdownMenuItem(
+                        text = { Text(text = strings.callWithNote) },
+                        modifier = Modifier.testTag(KEYPAD_OVERFLOW_CALL_WITH_NOTE_TEST_TAG),
+                        onClick = {
+                            expanded = false
+                            onAction(KeypadAction.CallWithNoteClicked)
+                        },
+                    )
+                }
             }
         }
     }
