@@ -30,6 +30,7 @@ import com.android.dialer.common.LogUtil
 import com.android.dialer.dialpadview.DialpadFragment
 import com.android.dialer.dialpadview.SpecialCharSequenceMgr
 import com.android.dialer.keypad.model.KeypadScreenEffect
+import com.android.dialer.keypad.ui.KeypadEntranceState
 import com.android.dialer.keypad.ui.KeypadScreen
 import com.android.dialer.keypad.ui.keypadStrings
 import com.android.dialer.precall.PreCall
@@ -78,6 +79,9 @@ class KeypadFragment : Fragment() {
 
     private var firstLaunch = false
 
+    /** Played from [onHiddenChanged]; outlives the view, which a hide keeps anyway. */
+    private val keyEntrance = KeypadEntranceState()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         firstLaunch = savedInstanceState == null
@@ -95,6 +99,7 @@ class KeypadFragment : Fragment() {
             DialerTheme {
                 KeypadHost(
                     screenModel = viewModel,
+                    entranceState = keyEntrance,
                     onEffect = ::handleEffect,
                     onQueryChanged = { query ->
                         parent<DialpadFragment.OnDialpadQueryChangedListener>()
@@ -164,6 +169,11 @@ class KeypadFragment : Fragment() {
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
         if (activity != null && view != null && !hidden) {
+            // animate is what the host last hid the keypad with, so an animated hide is followed by
+            // an animated show; DialpadFragment keyed its animateShow the same way.
+            if (animate) {
+                keyEntrance.play()
+            }
             parent<DialpadFragment.DialpadListener>().onDialpadShown()
         }
     }
@@ -329,6 +339,7 @@ class KeypadFragment : Fragment() {
 @Composable
 private fun KeypadHost(
     screenModel: KeypadScreenModel,
+    entranceState: KeypadEntranceState,
     onEffect: (KeypadScreenEffect) -> Unit,
     onQueryChanged: (String) -> Unit,
 ) {
@@ -353,6 +364,7 @@ private fun KeypadHost(
             uiState = uiState,
             strings = keypadStrings(),
             onAction = screenModel::onAction,
+            entranceState = entranceState,
         )
     }
 }

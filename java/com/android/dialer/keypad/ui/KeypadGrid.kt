@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadKey
@@ -25,7 +26,9 @@ internal fun KeypadGrid(
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
     modifier: Modifier = Modifier,
+    entranceState: KeypadEntranceState = rememberKeypadEntranceState(),
 ) {
+    val entranceLayout = keyEntranceLayout()
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(KEY_SPACING),
@@ -36,11 +39,21 @@ internal fun KeypadGrid(
                 horizontalArrangement = Arrangement.spacedBy(KEY_SPACING),
             ) {
                 row.forEach { key ->
+                    val entranceOffset = keyEntranceOffset(key, entranceLayout, entranceState)
                     KeypadKeyButton(
                         key = key,
                         onPress = { onAction(KeypadAction.KeyPressed(key)) },
                         onRelease = { onAction(KeypadAction.KeyReleased(key)) },
-                        modifier = Modifier.weight(1f),
+                        // Drawn displaced, laid out in place, as the View translation was.
+                        modifier = Modifier
+                            .weight(1f)
+                            .graphicsLayer {
+                                if (entranceLayout == KeyEntranceLayout.PORTRAIT) {
+                                    translationY = entranceOffset.value
+                                } else {
+                                    translationX = entranceOffset.value
+                                }
+                            },
                         longPressLabel = longPressLabel(key = key, strings = strings),
                         onLongPress = longPressAction(key = key, onAction = onAction),
                     )

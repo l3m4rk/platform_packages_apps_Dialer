@@ -50,6 +50,7 @@ internal fun KeypadScreen(
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
     modifier: Modifier = Modifier,
+    entranceState: KeypadEntranceState = rememberKeypadEntranceState(),
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -67,7 +68,7 @@ internal fun KeypadScreen(
         ) {
             KeypadDigitsRow(uiState = uiState, strings = strings, onAction = onAction)
 
-            KeypadGrid(strings = strings, onAction = onAction)
+            KeypadGrid(strings = strings, onAction = onAction, entranceState = entranceState)
 
             CallButton(
                 isPseudoEmergencyNumber = uiState.isPseudoEmergencyNumber,
