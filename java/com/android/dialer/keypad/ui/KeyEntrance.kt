@@ -1,6 +1,5 @@
 package com.android.dialer.keypad.ui
 
-import android.content.res.Configuration
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -12,7 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -88,8 +86,7 @@ internal fun keyEntranceTiming(key: KeypadKey, layout: KeyEntranceLayout): KeyEn
 
 @Composable
 internal fun keyEntranceLayout(): KeyEntranceLayout = when {
-    LocalConfiguration.current.orientation != Configuration.ORIENTATION_LANDSCAPE ->
-        KeyEntranceLayout.PORTRAIT
+    !isLandscape() -> KeyEntranceLayout.PORTRAIT
     LocalLayoutDirection.current == LayoutDirection.Rtl -> KeyEntranceLayout.LANDSCAPE_RTL
     else -> KeyEntranceLayout.LANDSCAPE_LTR
 }

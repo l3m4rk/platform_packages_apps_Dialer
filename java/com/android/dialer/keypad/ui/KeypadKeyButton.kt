@@ -6,6 +6,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -34,6 +35,10 @@ import com.android.dialer.theme.compose.DialerMotion
 
 private val KEY_MIN_HEIGHT = 64.dp
 
+// Short enough for four rows, the number and the call button in a landscape phone's height.
+private val COMPACT_KEY_MIN_HEIGHT = 40.dp
+private val COMPACT_SUBTITLE_SPACING = 6.dp
+
 // Half the minimum height, so a key at rest is a full pill, as in Google's Phone app. A press
 // squares it off with an expressive spring.
 private val KEY_RESTING_CORNER = 32.dp
@@ -54,6 +59,7 @@ internal fun KeypadKeyButton(
     onPress: () -> Unit,
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
+    isCompact: Boolean = false,
     longPressLabel: String? = null,
     onLongPress: (() -> Unit)? = null,
 ) {
@@ -68,7 +74,7 @@ internal fun KeypadKeyButton(
     Surface(
         modifier = modifier
             .testTag(keypadKeyTestTag(key))
-            .heightIn(min = KEY_MIN_HEIGHT)
+            .heightIn(min = if (isCompact) COMPACT_KEY_MIN_HEIGHT else KEY_MIN_HEIGHT)
             .keyPressGestures(
                 key = key,
                 onPress = onPress,
@@ -87,19 +93,38 @@ internal fun KeypadKeyButton(
         color = MaterialTheme.colorScheme.surfaceBright,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = key.char.toString(),
-                style = MaterialTheme.typography.headlineLarge,
-                textAlign = TextAlign.Center,
-            )
-            KeySubtitle(key = key)
+        if (isCompact) {
+            // Side by side, as the legacy landscape keys were, to spend width rather than height.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    space = COMPACT_SUBTITLE_SPACING,
+                    alignment = Alignment.CenterHorizontally,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                KeyDigit(key = key)
+                KeySubtitle(key = key)
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                KeyDigit(key = key)
+                KeySubtitle(key = key)
+            }
         }
     }
+}
+
+@Composable
+private fun KeyDigit(key: KeypadKey) {
+    Text(
+        text = key.char.toString(),
+        style = MaterialTheme.typography.headlineLarge,
+        textAlign = TextAlign.Center,
+    )
 }
 
 /** The voicemail glyph under 1, the letters under 2-9 and the `+` under 0; nothing for `*` or `#`. */

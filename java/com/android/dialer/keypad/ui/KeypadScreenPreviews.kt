@@ -60,6 +60,26 @@ private fun KeypadScreenLargeFontPreview() {
     }
 }
 
+/** A landscape phone: the keypad beside the search results, its keys compact. */
+@Preview(device = "spec:width=891dp,height=411dp,orientation=landscape", showBackground = true)
+@Composable
+private fun KeypadScreenLandscapePreview() {
+    DialerPreviewTheme {
+        KeypadPlacement { placement ->
+            KeypadScreen(
+                uiState = KeypadUiState(
+                    digits = "(650) 555-1212",
+                    isDeleteEnabled = true,
+                    isOverflowVisible = true,
+                ),
+                strings = previewKeypadStrings(),
+                onAction = {},
+                modifier = placement,
+            )
+        }
+    }
+}
+
 @Composable
 private fun PreviewKeypadScreen(uiState: KeypadUiState) {
     KeypadScreen(

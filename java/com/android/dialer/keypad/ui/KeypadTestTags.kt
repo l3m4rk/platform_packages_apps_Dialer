@@ -2,6 +2,7 @@ package com.android.dialer.keypad.ui
 
 import com.android.dialer.keypad.model.KeypadKey
 
+internal const val KEYPAD_SHEET_TEST_TAG = "keypad_sheet"
 internal const val KEYPAD_DIGITS_TEST_TAG = "keypad_digits"
 internal const val KEYPAD_EMERGENCY_WARNING_TEST_TAG = "keypad_emergency_warning"
 internal const val KEYPAD_DELETE_TEST_TAG = "keypad_delete"

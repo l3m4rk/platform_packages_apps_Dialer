@@ -3,6 +3,7 @@ package com.android.dialer.keypad.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ internal fun KeypadGrid(
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
     modifier: Modifier = Modifier,
+    isCompact: Boolean = false,
     entranceState: KeypadEntranceState = rememberKeypadEntranceState(),
 ) {
     val entranceLayout = keyEntranceLayout()
@@ -35,7 +37,10 @@ internal fun KeypadGrid(
     ) {
         KEY_ROWS.forEach { row ->
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                // Compact rows split the grid's height evenly; otherwise each is as tall as its keys.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (isCompact) Modifier.weight(1f) else Modifier),
                 horizontalArrangement = Arrangement.spacedBy(KEY_SPACING),
             ) {
                 row.forEach { key ->
@@ -47,6 +52,7 @@ internal fun KeypadGrid(
                         // Drawn displaced, laid out in place, as the View translation was.
                         modifier = Modifier
                             .weight(1f)
+                            .then(if (isCompact) Modifier.fillMaxHeight() else Modifier)
                             .graphicsLayer {
                                 if (entranceLayout == KeyEntranceLayout.PORTRAIT) {
                                     translationY = entranceOffset.value
@@ -54,6 +60,7 @@ internal fun KeypadGrid(
                                     translationX = entranceOffset.value
                                 }
                             },
+                        isCompact = isCompact,
                         longPressLabel = longPressLabel(key = key, strings = strings),
                         onLongPress = longPressAction(key = key, onAction = onAction),
                     )

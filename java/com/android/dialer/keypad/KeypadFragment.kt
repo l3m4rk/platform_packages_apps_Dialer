@@ -8,13 +8,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
@@ -32,6 +28,7 @@ import com.android.dialer.dialpadview.DialpadFragment
 import com.android.dialer.dialpadview.SpecialCharSequenceMgr
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.keypad.ui.KeypadEntranceState
+import com.android.dialer.keypad.ui.KeypadPlacement
 import com.android.dialer.keypad.ui.KeypadScreen
 import com.android.dialer.keypad.ui.keypadStrings
 import com.android.dialer.precall.PreCall
@@ -361,14 +358,12 @@ private fun KeypadHost(
     }
     CollectEvents(events = queries, onEvent = onQueryChanged)
 
-    // Fills the host's full-screen container but only draws at the bottom. The empty space above
-    // handles no touches, so they fall through to the search results underneath, as the host
-    // expects.
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+    KeypadPlacement { placement ->
         KeypadScreen(
             uiState = uiState,
             strings = keypadStrings(),
             onAction = screenModel::onAction,
+            modifier = placement,
             entranceState = entranceState,
         )
     }

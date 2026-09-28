@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -52,23 +53,40 @@ internal fun KeypadScreen(
     modifier: Modifier = Modifier,
     entranceState: KeypadEntranceState = rememberKeypadEntranceState(),
 ) {
+    val isLandscape = isLandscape()
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER),
+        modifier = modifier
+            .testTag(KEYPAD_SHEET_TEST_TAG)
+            .fillMaxWidth()
+            .then(if (isLandscape) Modifier.fillMaxHeight() else Modifier),
+        // Rounded on the side facing the search results: the top in portrait, the start beside
+        // them in landscape.
+        shape = if (isLandscape) {
+            RoundedCornerShape(topStart = SHEET_CORNER, bottomStart = SHEET_CORNER)
+        } else {
+            RoundedCornerShape(topStart = SHEET_CORNER, topEnd = SHEET_CORNER)
+        },
         color = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         Column(
-            modifier = Modifier.padding(
-                horizontal = SHEET_HORIZONTAL_PADDING,
-                vertical = SHEET_VERTICAL_PADDING,
-            ),
+            modifier = Modifier
+                .padding(horizontal = SHEET_HORIZONTAL_PADDING, vertical = SHEET_VERTICAL_PADDING)
+                .then(if (isLandscape) Modifier.fillMaxHeight() else Modifier),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(SECTION_SPACING),
         ) {
             KeypadDigitsRow(uiState = uiState, strings = strings, onAction = onAction)
 
-            KeypadGrid(strings = strings, onAction = onAction, entranceState = entranceState)
+            KeypadGrid(
+                strings = strings,
+                onAction = onAction,
+                // Landscape is short: the keys share what height is left rather than asking for
+                // their own, which is what pushed the call button off the screen.
+                modifier = if (isLandscape) Modifier.weight(1f) else Modifier,
+                isCompact = isLandscape,
+                entranceState = entranceState,
+            )
 
             CallButton(
                 isPseudoEmergencyNumber = uiState.isPseudoEmergencyNumber,
