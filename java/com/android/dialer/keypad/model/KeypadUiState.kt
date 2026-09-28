@@ -18,4 +18,6 @@ internal data class KeypadUiState(
     val showsEmergencyCallWarning: Boolean = false,
     /** The field spells [PseudoEmergency.NUMBER], so the call button pulses. */
     val isPseudoEmergencyNumber: Boolean = false,
+    /** Whether the overflow menu offers "Call with a note". */
+    val isCallWithNoteAvailable: Boolean = false,
 )

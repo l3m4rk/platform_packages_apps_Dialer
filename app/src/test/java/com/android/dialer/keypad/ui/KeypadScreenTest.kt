@@ -147,5 +147,6 @@ class KeypadScreenTest {
         emergencyCallWarning = "no emergency calls over wifi",
         addPause = "Add 2-sec pause",
         addWait = "Add wait",
+        callWithNote = "Call with a note",
     )
 }

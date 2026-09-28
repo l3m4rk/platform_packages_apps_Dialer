@@ -24,6 +24,7 @@ internal data class KeypadStrings(
     val emergencyCallWarning: String,
     val addPause: String,
     val addWait: String,
+    val callWithNote: String,
 )
 
 @Composable
@@ -36,4 +37,5 @@ internal fun keypadStrings(): KeypadStrings = KeypadStrings(
     emergencyCallWarning = stringResource(R.string.dialpad_hint_emergency_calling_not_available),
     addPause = stringResource(R.string.add_2sec_pause),
     addWait = stringResource(R.string.add_wait),
+    callWithNote = stringResource(R.string.call_with_a_note),
 )

@@ -32,4 +32,7 @@ internal sealed interface KeypadAction {
 
     /** The call button. Places a call, or recalls the last dialed number into an empty field. */
     data object CallClicked : KeypadAction
+
+    /** The overflow menu's "Call with a note". */
+    data object CallWithNoteClicked : KeypadAction
 }

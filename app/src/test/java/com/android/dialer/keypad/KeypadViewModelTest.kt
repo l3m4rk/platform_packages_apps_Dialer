@@ -5,6 +5,7 @@ import android.media.ToneGenerator
 import android.os.Build
 import app.cash.turbine.test
 import com.android.dialer.dialpadview.DialerPhoneNumberFormattingTextWatcher
+import com.android.dialer.keypad.domain.CallWithNoteAvailability
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
 import com.android.dialer.keypad.domain.DialIntentNumber
 import com.android.dialer.keypad.domain.DtmfTonePlayer
@@ -55,6 +56,7 @@ class KeypadViewModelTest {
     private val checkIfNumberIsProhibited = mockk<CheckIfNumberIsProhibited>()
     private val dialIntentNumber = mockk<DialIntentNumber>()
     private val vibration = mockk<Vibration>(relaxed = true)
+    private val callWithNoteAvailability = mockk<CallWithNoteAvailability>()
 
     @Before
     fun setUp() {
@@ -63,6 +65,7 @@ class KeypadViewModelTest {
         coEvery { lastOutgoingCall() } returns null
         every { checkIfNumberIsProhibited(any()) } returns false
         coEvery { dialIntentNumber(any()) } returns null
+        every { callWithNoteAvailability.isAvailable() } returns false
     }
 
     // region typing
@@ -663,6 +666,57 @@ class KeypadViewModelTest {
 
     // endregion
 
+    // region call with a note
+
+    @Test
+    fun callWithANoteIsOfferedWhenAnAccountSupportsIt() {
+        every { callWithNoteAvailability.isAvailable() } returns true
+        val viewModel = createViewModel()
+
+        viewModel.onHostStarted()
+
+        assertTrue(viewModel.uiState.value.isCallWithNoteAvailable)
+    }
+
+    @Test
+    fun callWithANoteIsNotOfferedOtherwise() {
+        val viewModel = createViewModel()
+
+        viewModel.onHostStarted()
+
+        assertFalse(viewModel.uiState.value.isCallWithNoteAvailable)
+    }
+
+    @Test
+    fun callWithANoteIsReCheckedEachTimeTheKeypadStarts() {
+        val viewModel = createViewModel()
+        viewModel.onHostStarted()
+        viewModel.onHostStopped()
+
+        // The SIM or carrier changed while the keypad was away.
+        every { callWithNoteAvailability.isAvailable() } returns true
+        viewModel.onHostStarted()
+
+        assertTrue(viewModel.uiState.value.isCallWithNoteAvailable)
+    }
+
+    @Test
+    fun callingWithANoteHandsOverTheNumberAsShown() = runTest {
+        coEvery { phoneNumberFormatting.createWatcher() } returns
+            DialerPhoneNumberFormattingTextWatcher("US")
+        val viewModel = createViewModel()
+        viewModel.type("6502530000")
+
+        viewModel.effects.test {
+            viewModel.onAction(KeypadAction.CallWithNoteClicked)
+
+            assertEquals(KeypadScreenEffect.CallWithNote("(650) 253-0000"), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // endregion
+
     // region pseudo-emergency
 
     @Test
@@ -769,6 +823,7 @@ class KeypadViewModelTest {
         checkIfNumberIsProhibited = checkIfNumberIsProhibited,
         dialIntentNumber = dialIntentNumber,
         vibration = vibration,
+        callWithNoteAvailability = callWithNoteAvailability,
     )
 
     private fun KeypadViewModel.press(vararg keys: KeypadKey) {

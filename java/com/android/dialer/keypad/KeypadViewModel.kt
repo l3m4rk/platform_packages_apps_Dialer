@@ -4,6 +4,7 @@ import android.content.Intent
 import android.media.ToneGenerator
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.dialer.keypad.domain.CallWithNoteAvailability
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
 import com.android.dialer.keypad.domain.DialIntentNumber
 import com.android.dialer.keypad.domain.DtmfTonePlayer
@@ -53,6 +54,7 @@ internal class KeypadViewModel @Inject constructor(
     private val checkIfNumberIsProhibited: CheckIfNumberIsProhibited,
     private val dialIntentNumber: DialIntentNumber,
     private val vibration: Vibration,
+    private val callWithNoteAvailability: CallWithNoteAvailability,
 ) : ViewModel(),
     KeypadScreenModel {
 
@@ -93,6 +95,9 @@ internal class KeypadViewModel @Inject constructor(
     /** Re-read by [refreshEmergencyCallWarning] rather than queried while mapping state. */
     private val isEmergencyCallWarningActive = MutableStateFlow(false)
 
+    /** Re-read when the keypad starts, as the accounts behind it can change while it is away. */
+    private val isCallWithNoteAvailable = MutableStateFlow(false)
+
     /**
      * Derived from its inputs rather than pushed by each action, so a new action cannot forget to
      * republish.
@@ -104,7 +109,8 @@ internal class KeypadViewModel @Inject constructor(
     override val uiState: StateFlow<KeypadUiState> = combine(
         digits.text,
         isEmergencyCallWarningActive,
-    ) { text, warningActive ->
+        isCallWithNoteAvailable,
+    ) { text, warningActive, callWithNoteAvailable ->
         KeypadUiState(
             digits = text,
             isDeleteEnabled = text.isNotEmpty(),
@@ -112,6 +118,7 @@ internal class KeypadViewModel @Inject constructor(
             // The hint renders inside the empty digits field, so it has nowhere else to go.
             showsEmergencyCallWarning = text.isEmpty() && warningActive,
             isPseudoEmergencyNumber = PseudoEmergency.matches(text),
+            isCallWithNoteAvailable = callWithNoteAvailable,
         )
     }
         .stateIn(
@@ -168,6 +175,9 @@ internal class KeypadViewModel @Inject constructor(
         // Airplane mode, permissions and service state can all have changed while the keypad was
         // away, and the digits are unchanged, so nothing else would trigger a re-read.
         refreshEmergencyCallWarning()
+        // DialpadFragment re-checked this each time its menu opened; the start of each visit is as
+        // close as the view model gets, and it catches the same SIM or carrier changes.
+        isCallWithNoteAvailable.value = callWithNoteAvailability.isAvailable()
         viewModelScope.launch { lastDialedNumber = lastOutgoingCall() }
     }
 
@@ -207,6 +217,8 @@ internal class KeypadViewModel @Inject constructor(
             KeypadAction.PauseClicked -> digits.insertDialStringChar(PAUSE)
             KeypadAction.WaitClicked -> digits.insertDialStringChar(WAIT)
             KeypadAction.CallClicked -> onCallClicked()
+            KeypadAction.CallWithNoteClicked ->
+                emitEffect(KeypadScreenEffect.CallWithNote(digits.text.value))
         }
     }
 

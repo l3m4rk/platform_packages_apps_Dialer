@@ -161,6 +161,16 @@ private fun OverflowButton(
                     onAction(KeypadAction.WaitClicked)
                 },
             )
+            if (uiState.isCallWithNoteAvailable) {
+                DropdownMenuItem(
+                    text = { Text(text = strings.callWithNote) },
+                    modifier = Modifier.testTag(KEYPAD_OVERFLOW_CALL_WITH_NOTE_TEST_TAG),
+                    onClick = {
+                        expanded = false
+                        onAction(KeypadAction.CallWithNoteClicked)
+                    },
+                )
+            }
         }
     }
 }

@@ -29,6 +29,14 @@ internal sealed interface KeypadScreenEffect {
     data object ShowProhibitedNumberError : KeypadScreenEffect
 
     /**
+     * Open the call subject dialog for [number], which places the call itself, and dismiss the
+     * keypad as for any placed call.
+     */
+    data class CallWithNote(
+        val number: String,
+    ) : KeypadScreenEffect
+
+    /**
      * The user typed [input]; if it is a special code such as `*#06#`, an MMI code or a SIM
      * contact's position, act on it and then clear the field. Most codes need an `Activity`, to
      * show a dialog or start one, which is why the fragment rather than the view model runs them.

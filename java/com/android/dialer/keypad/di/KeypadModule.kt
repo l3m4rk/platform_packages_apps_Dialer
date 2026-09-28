@@ -1,5 +1,6 @@
 package com.android.dialer.keypad.di
 
+import com.android.dialer.keypad.domain.CallWithNoteAvailability
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibitedImpl
 import com.android.dialer.keypad.domain.DialIntentNumber
@@ -7,6 +8,7 @@ import com.android.dialer.keypad.domain.DtmfTonePlayer
 import com.android.dialer.keypad.domain.EmergencyCallWarning
 import com.android.dialer.keypad.domain.LastOutgoingCall
 import com.android.dialer.keypad.domain.PhoneNumberFormatting
+import com.android.dialer.keypad.domain.SystemCallWithNoteAvailability
 import com.android.dialer.keypad.domain.SystemDialIntentNumber
 import com.android.dialer.keypad.domain.SystemDtmfTonePlayer
 import com.android.dialer.keypad.domain.SystemEmergencyCallWarning
@@ -64,4 +66,9 @@ internal interface KeypadModule {
 
     @Binds
     fun bindVibration(vibration: SystemVibration): Vibration
+
+    @Binds
+    fun bindCallWithNoteAvailability(
+        availability: SystemCallWithNoteAvailability,
+    ): CallWithNoteAvailability
 }

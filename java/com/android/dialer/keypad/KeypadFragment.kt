@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.contacts.common.dialog.CallSubjectDialog
 import com.android.dialer.R
 import com.android.dialer.animation.AnimUtils
 import com.android.dialer.callintent.CallInitiationType
@@ -281,6 +282,10 @@ class KeypadFragment : Fragment() {
                 message = R.string.dialog_phone_call_prohibited_message,
                 tag = PROHIBITED_NUMBER_DIALOG_TAG,
             )
+            is KeypadScreenEffect.CallWithNote -> {
+                CallSubjectDialog.start(requireActivity(), effect.number)
+                parent<DialpadFragment.DialpadListener>().onCallPlacedFromDialpad()
+            }
             is KeypadScreenEffect.RunSpecialCode -> runSpecialCode(effect.input)
         }
     }

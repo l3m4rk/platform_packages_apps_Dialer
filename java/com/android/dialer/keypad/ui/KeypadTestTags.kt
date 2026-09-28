@@ -8,6 +8,7 @@ internal const val KEYPAD_DELETE_TEST_TAG = "keypad_delete"
 internal const val KEYPAD_OVERFLOW_TEST_TAG = "keypad_overflow"
 internal const val KEYPAD_OVERFLOW_PAUSE_TEST_TAG = "keypad_overflow_pause"
 internal const val KEYPAD_OVERFLOW_WAIT_TEST_TAG = "keypad_overflow_wait"
+internal const val KEYPAD_OVERFLOW_CALL_WITH_NOTE_TEST_TAG = "keypad_overflow_call_with_note"
 internal const val KEYPAD_CALL_TEST_TAG = "keypad_call"
 
 /** Stable per-key tag, so tests never have to match on a glyph or a localized letter row. */

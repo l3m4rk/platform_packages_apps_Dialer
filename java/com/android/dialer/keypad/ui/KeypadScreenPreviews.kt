@@ -78,4 +78,5 @@ private fun previewKeypadStrings() = KeypadStrings(
     emergencyCallWarning = "Can't make emergency calls over Wi-Fi",
     addPause = "Add 2-sec pause",
     addWait = "Add wait",
+    callWithNote = "Call with a note",
 )
