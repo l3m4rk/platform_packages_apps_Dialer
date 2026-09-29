@@ -72,18 +72,22 @@ public class CallUtil {
       return VIDEO_CALLING_DISABLED;
     }
 
-    List<PhoneAccountHandle> accountHandles = telecommMgr.getCallCapablePhoneAccounts();
-    for (PhoneAccountHandle accountHandle : accountHandles) {
-      PhoneAccount account = telecommMgr.getPhoneAccount(accountHandle);
-      if (account != null) {
-        if (account.hasCapabilities(PhoneAccount.CAPABILITY_VIDEO_CALLING)) {
-          int videoCapabilities = VIDEO_CALLING_ENABLED;
-          if (account.hasCapabilities(PhoneAccount.CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE)) {
-            videoCapabilities |= VIDEO_CALLING_PRESENCE;
+    try {
+      List<PhoneAccountHandle> accountHandles = telecommMgr.getCallCapablePhoneAccounts();
+      for (PhoneAccountHandle accountHandle : accountHandles) {
+        PhoneAccount account = telecommMgr.getPhoneAccount(accountHandle);
+        if (account != null) {
+          if (account.hasCapabilities(PhoneAccount.CAPABILITY_VIDEO_CALLING)) {
+            int videoCapabilities = VIDEO_CALLING_ENABLED;
+            if (account.hasCapabilities(PhoneAccount.CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE)) {
+              videoCapabilities |= VIDEO_CALLING_PRESENCE;
+            }
+            return videoCapabilities;
           }
-          return videoCapabilities;
         }
       }
+    } catch (SecurityException e) {
+      logCannotReadPhoneAccounts("CallUtil.getVideoCallingAvailability", e);
     }
     return VIDEO_CALLING_DISABLED;
   }
@@ -133,13 +137,28 @@ public class CallUtil {
       return false;
     }
 
-    List<PhoneAccountHandle> accountHandles = telecommMgr.getCallCapablePhoneAccounts();
-    for (PhoneAccountHandle accountHandle : accountHandles) {
-      PhoneAccount account = telecommMgr.getPhoneAccount(accountHandle);
-      if (account != null && account.hasCapabilities(PhoneAccount.CAPABILITY_CALL_SUBJECT)) {
-        return true;
+    try {
+      List<PhoneAccountHandle> accountHandles = telecommMgr.getCallCapablePhoneAccounts();
+      for (PhoneAccountHandle accountHandle : accountHandles) {
+        PhoneAccount account = telecommMgr.getPhoneAccount(accountHandle);
+        if (account != null && account.hasCapabilities(PhoneAccount.CAPABILITY_CALL_SUBJECT)) {
+          return true;
+        }
       }
+    } catch (SecurityException e) {
+      logCannotReadPhoneAccounts("CallUtil.isCallWithSubjectSupported", e);
     }
     return false;
+  }
+
+  /**
+   * READ_PHONE_STATE, checked above, lets an app list the accounts but no longer read them:
+   * getPhoneAccount also needs READ_PHONE_NUMBERS, unless the app is the default dialer. A regular
+   * install granted only the first used to crash here on the first number typed, from search, call
+   * log or speed dial alike. Without the second it now reports the capability as unavailable, as
+   * it already did without the first.
+   */
+  private static void logCannotReadPhoneAccounts(String tag, SecurityException e) {
+    LogUtil.w(tag, "cannot read the phone accounts: " + e);
   }
 }
