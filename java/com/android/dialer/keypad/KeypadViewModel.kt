@@ -107,12 +107,15 @@ internal class KeypadViewModel @Inject constructor(
      * readers that never collect.
      */
     override val uiState: StateFlow<KeypadUiState> = combine(
-        digits.text,
+        digits.value,
         isEmergencyCallWarningActive,
         isCallWithNoteAvailable,
-    ) { text, warningActive, callWithNoteAvailable ->
+    ) { value, warningActive, callWithNoteAvailable ->
+        val text = value.text
         KeypadUiState(
             digits = text,
+            selectionStart = value.selectionStart,
+            selectionEnd = value.selectionEnd,
             isDeleteEnabled = text.isNotEmpty(),
             isOverflowVisible = text.isNotEmpty(),
             // The hint renders inside the empty digits field, so it has nowhere else to go.
@@ -217,6 +220,9 @@ internal class KeypadViewModel @Inject constructor(
             KeypadAction.PauseClicked -> digits.insertDialStringChar(PAUSE)
             KeypadAction.WaitClicked -> digits.insertDialStringChar(WAIT)
             KeypadAction.CallClicked -> onCallClicked()
+            is KeypadAction.CharacterTyped -> digits.append(action.char)
+            is KeypadAction.DigitsEdited ->
+                digits.applyEdit(action.text, action.selectionStart, action.selectionEnd)
             KeypadAction.CallWithNoteClicked ->
                 emitEffect(KeypadScreenEffect.CallWithNote(digits.text.value))
         }

@@ -2,6 +2,8 @@ package com.android.dialer.keypad.model
 
 import android.text.Editable
 import android.text.Selection
+import android.text.SpanWatcher
+import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
@@ -45,6 +47,14 @@ internal class DialpadDigits {
      * the same mechanism the formatter runs on, so a reformat republishes too.
      */
     val text: StateFlow<String> = _text.asStateFlow()
+
+    private val _value = MutableStateFlow(DigitsValue())
+
+    /**
+     * The number with its cursor or selection, for the digits field. Published by the same
+     * [TextEmitter], which also watches the selection, so no mutator has to remember to update it.
+     */
+    val value: StateFlow<DigitsValue> = _value.asStateFlow()
 
     init {
         buffer.filters = arrayOf(UnicodeDialerKeyListener.INSTANCE)
@@ -116,6 +126,32 @@ internal class DialpadDigits {
         buffer.replace(0, buffer.length, value)
     }
 
+    /**
+     * Applies an edit made in the digits text field: typing or deleting at the cursor, pasting,
+     * or just moving the cursor.
+     *
+     * Only the changed range is replaced, so the input filter sees just what was typed or pasted,
+     * the formatter reformats as it would for any edit, and the cursor ends up after the new text
+     * wherever the formatter moves it, as it did in the `EditText`. The field's own selection is
+     * used only when the text is unchanged.
+     */
+    fun applyEdit(value: String, selectionStart: Int, selectionEnd: Int) {
+        val current = buffer.toString()
+        if (value == current) {
+            val start = minOf(selectionStart, selectionEnd).coerceIn(0, length)
+            val end = maxOf(selectionStart, selectionEnd).coerceIn(0, length)
+            setSelection(start, end)
+            return
+        }
+        val prefix = current.commonPrefixWith(value).length
+        val suffix = current.substring(prefix).commonSuffixWith(value.substring(prefix)).length
+        val oldEnd = current.length - suffix
+        val newEnd = value.length - suffix
+        // A cursor at the end of the replaced range stays after the replacement.
+        setSelection(oldEnd)
+        buffer.replace(prefix, oldEnd, value, prefix, newEnd)
+    }
+
     /** Inserts [value] before everything already typed; the cursor keeps its place after it. */
     fun insertAtStart(value: String) {
         buffer.replace(0, 0, value)
@@ -185,13 +221,50 @@ internal class DialpadDigits {
         newDigit != WAIT ||
             (digits[start - 1] != WAIT && (digits.length <= end || digits[end] != WAIT))
 
-    private inner class TextEmitter : TextWatcher {
+    /**
+     * Publishes [text] and [value] on every change of text, and [value] on every move of the
+     * cursor, which a `TextWatcher` alone would miss: the formatter places the cursor after its
+     * rewrite, and a tap moves it without any text changing.
+     */
+    private inner class TextEmitter :
+        TextWatcher,
+        SpanWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
 
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
         override fun afterTextChanged(s: Editable) {
             _text.value = s.toString()
+            publishValue()
+        }
+
+        override fun onSpanAdded(text: Spannable, what: Any, start: Int, end: Int) =
+            onSpan(what)
+
+        override fun onSpanRemoved(text: Spannable, what: Any, start: Int, end: Int) =
+            onSpan(what)
+
+        override fun onSpanChanged(
+            text: Spannable,
+            what: Any,
+            ostart: Int,
+            oend: Int,
+            nstart: Int,
+            nend: Int,
+        ) = onSpan(what)
+
+        private fun onSpan(what: Any) {
+            if (what === Selection.SELECTION_START || what === Selection.SELECTION_END) {
+                publishValue()
+            }
+        }
+
+        private fun publishValue() {
+            _value.value = DigitsValue(
+                text = buffer.toString(),
+                selectionStart = selectionStart.coerceIn(0, buffer.length),
+                selectionEnd = selectionEnd.coerceIn(0, buffer.length),
+            )
         }
     }
 }

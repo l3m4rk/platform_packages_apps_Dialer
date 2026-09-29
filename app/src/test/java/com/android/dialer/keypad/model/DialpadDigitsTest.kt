@@ -283,4 +283,109 @@ class DialpadDigitsTest {
 
         assertEquals("11 5678-9012", digits.text.value)
     }
+
+    // region text field
+
+    @Test
+    fun theFieldFollowsTyping() {
+        val digits = DialpadDigits()
+
+        digits.append('5')
+        digits.append('6')
+
+        assertEquals("56", digits.value.value.text)
+        assertEquals(DigitsValue(digits.text.value, 2, 2), digits.value.value)
+    }
+
+    @Test
+    fun theFieldFollowsACursorMoveWithoutAnyTextChange() {
+        val digits = DialpadDigits()
+        digits.setText("123")
+
+        digits.setSelection(1)
+
+        assertEquals(DigitsValue(digits.text.value, 1, 1), digits.value.value)
+    }
+
+    @Test
+    fun typingInTheFieldInsertsAtItsCursor() {
+        val digits = DialpadDigits()
+        digits.setText("13")
+        digits.setSelection(1)
+
+        digits.applyEdit("123", 2, 2)
+
+        assertEquals("123", digits.text.value)
+        assertEquals(DigitsValue(digits.text.value, 2, 2), digits.value.value)
+    }
+
+    @Test
+    fun deletingInTheFieldRemovesJustThatCharacter() {
+        val digits = DialpadDigits()
+        digits.setText("123")
+
+        digits.applyEdit("13", 1, 1)
+
+        assertEquals("13", digits.text.value)
+        assertEquals(DigitsValue(digits.text.value, 1, 1), digits.value.value)
+    }
+
+    @Test
+    fun pastingReplacesTheSelection() {
+        val digits = DialpadDigits()
+        digits.setText("1999")
+        digits.setSelection(1, 4)
+
+        digits.applyEdit("1555", 4, 4)
+
+        assertEquals("1555", digits.text.value)
+        assertEquals(DigitsValue(digits.text.value, 4, 4), digits.value.value)
+    }
+
+    @Test
+    fun pastedTextGoesThroughTheKeypadFilter() {
+        val digits = DialpadDigits()
+
+        // Letters become their keypad digits, Arabic-Indic digits become ASCII.
+        digits.applyEdit("1-800-FLOWERS ٥", 15, 15)
+
+        assertEquals("1-800-3569377 5", digits.text.value)
+    }
+
+    @Test
+    fun movingTheCursorInTheFieldMovesTheBuffersCursor() {
+        val digits = DialpadDigits()
+        digits.setText("123")
+
+        digits.applyEdit("123", 1, 1)
+        digits.append('9')
+
+        assertEquals("1923", digits.text.value)
+    }
+
+    @Test
+    fun aSelectionInTheFieldIsKept() {
+        val digits = DialpadDigits()
+        digits.setText("12345")
+
+        digits.applyEdit("12345", 1, 4)
+
+        assertEquals(DigitsValue(digits.text.value, 1, 4), digits.value.value)
+    }
+
+    @Test
+    fun theCursorStaysAfterTheEditWhenTheFormatterRewritesTheNumber() {
+        val digits = DialpadDigits()
+        digits.addFormattingWatcher(DialerPhoneNumberFormattingTextWatcher("US"))
+        "650253000".forEach(digits::append)
+
+        // One more digit typed at the end of what the field shows, formatting and all.
+        val shown = digits.value.value.text
+        digits.applyEdit(shown + "0", shown.length + 1, shown.length + 1)
+
+        assertEquals("(650) 253-0000", digits.text.value)
+        assertEquals(DigitsValue(digits.text.value, 14, 14), digits.value.value)
+    }
+
+    // endregion
 }

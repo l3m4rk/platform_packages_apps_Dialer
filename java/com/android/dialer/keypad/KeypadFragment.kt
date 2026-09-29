@@ -10,7 +10,9 @@ import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
@@ -80,6 +82,9 @@ class KeypadFragment : Fragment() {
     /** Played from [onHiddenChanged]; outlives the view, which a hide keeps anyway. */
     private val keyEntrance = KeypadEntranceState()
 
+    /** Bumped each time the keypad is shown, so that the number takes focus as the legacy one did. */
+    private var shows by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         firstLaunch = savedInstanceState == null
@@ -98,6 +103,7 @@ class KeypadFragment : Fragment() {
                 KeypadHost(
                     screenModel = viewModel,
                     entranceState = keyEntrance,
+                    focusRequests = shows,
                     onEffect = ::handleEffect,
                     onQueryChanged = { query ->
                         parent<DialpadFragment.OnDialpadQueryChangedListener>()
@@ -172,6 +178,7 @@ class KeypadFragment : Fragment() {
             if (animate) {
                 keyEntrance.play()
             }
+            shows++
             parent<DialpadFragment.DialpadListener>().onDialpadShown()
         }
     }
@@ -342,6 +349,7 @@ class KeypadFragment : Fragment() {
 private fun KeypadHost(
     screenModel: KeypadScreenModel,
     entranceState: KeypadEntranceState,
+    focusRequests: Int,
     onEffect: (KeypadScreenEffect) -> Unit,
     onQueryChanged: (String) -> Unit,
 ) {
@@ -365,6 +373,7 @@ private fun KeypadHost(
             onAction = screenModel::onAction,
             modifier = placement,
             entranceState = entranceState,
+            focusRequests = focusRequests,
         )
     }
 }

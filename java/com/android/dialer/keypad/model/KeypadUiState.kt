@@ -11,6 +11,9 @@ import androidx.compose.runtime.Immutable
 @Immutable
 internal data class KeypadUiState(
     val digits: String = "",
+    /** Where the digits field's cursor is, or its selection when the two differ. */
+    val selectionStart: Int = 0,
+    val selectionEnd: Int = 0,
     val isDeleteEnabled: Boolean = false,
     /** The overflow only appears once there is something for its actions to act on. */
     val isOverflowVisible: Boolean = false,

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadAction
@@ -47,8 +48,12 @@ private val ICON_SIZE = 24.dp
 @Composable
 internal fun KeypadDigitsRow(
     uiState: KeypadUiState,
+    digitsField: TextFieldValue,
+    isCursorVisible: Boolean,
+    focusRequests: Int,
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
+    onDigitsTouched: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -61,14 +66,23 @@ internal fun KeypadDigitsRow(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = uiState.digits,
-                style = MaterialTheme.typography.displaySmall,
-                maxLines = 1,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(KEYPAD_DIGITS_TEST_TAG),
+            KeypadDigitsField(
+                value = digitsField,
+                isCursorVisible = isCursorVisible,
+                focusRequests = focusRequests,
+                onValueChange = { value ->
+                    onAction(
+                        KeypadAction.DigitsEdited(
+                            text = value.text,
+                            selectionStart = value.selection.start,
+                            selectionEnd = value.selection.end,
+                        ),
+                    )
+                },
+                onTyped = { char -> onAction(KeypadAction.CharacterTyped(char)) },
+                onDelete = { onAction(KeypadAction.DeleteClicked) },
+                onTouched = onDigitsTouched,
+                onEnter = { onAction(KeypadAction.CallClicked) },
             )
             if (uiState.showsEmergencyCallWarning) {
                 Text(

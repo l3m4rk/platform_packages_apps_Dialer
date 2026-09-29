@@ -22,10 +22,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadAction
@@ -55,6 +63,7 @@ internal fun KeypadScreen(
     onAction: (KeypadAction) -> Unit,
     modifier: Modifier = Modifier,
     entranceState: KeypadEntranceState = rememberKeypadEntranceState(),
+    focusRequests: Int = 0,
 ) {
     val isLandscape = isLandscape()
     Surface(
@@ -78,6 +87,7 @@ internal fun KeypadScreen(
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             KeypadContent(
                 uiState = uiState,
+                focusRequests = focusRequests,
                 strings = strings,
                 onAction = onAction,
                 isLandscape = isLandscape,
@@ -90,11 +100,34 @@ internal fun KeypadScreen(
 @Composable
 private fun KeypadContent(
     uiState: KeypadUiState,
+    focusRequests: Int,
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
     isLandscape: Boolean,
     entranceState: KeypadEntranceState,
 ) {
+    // The legacy cursor rules: hidden until the number is touched, hidden again once it empties or
+    // a key is typed at its end, where there is no cursor position worth showing.
+    val digitsField = TextFieldValue(
+        text = uiState.digits,
+        selection = TextRange(uiState.selectionStart, uiState.selectionEnd),
+    )
+    var isCursorVisible by remember { mutableStateOf(false) }
+    val currentField by rememberUpdatedState(digitsField)
+    LaunchedEffect(digitsField.text.isEmpty()) {
+        if (digitsField.text.isEmpty()) {
+            isCursorVisible = false
+        }
+    }
+    val onKeyAction: (KeypadAction) -> Unit = { action ->
+        val field = currentField
+        val isAtEnd = field.selection.collapsed && field.selection.end == field.text.length
+        if (action is KeypadAction.KeyPressed && isAtEnd) {
+            isCursorVisible = false
+        }
+        onAction(action)
+    }
+
     Column(
         modifier = Modifier
             .padding(horizontal = SHEET_HORIZONTAL_PADDING, vertical = SHEET_VERTICAL_PADDING)
@@ -102,11 +135,19 @@ private fun KeypadContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(SECTION_SPACING),
     ) {
-        KeypadDigitsRow(uiState = uiState, strings = strings, onAction = onAction)
+        KeypadDigitsRow(
+            uiState = uiState,
+            digitsField = digitsField,
+            isCursorVisible = isCursorVisible,
+            focusRequests = focusRequests,
+            strings = strings,
+            onAction = onAction,
+            onDigitsTouched = { isCursorVisible = digitsField.text.isNotEmpty() },
+        )
 
         KeypadGrid(
             strings = strings,
-            onAction = onAction,
+            onAction = onKeyAction,
             // Landscape is short: the keys share what height is left rather than asking for
             // their own, which is what pushed the call button off the screen.
             modifier = if (isLandscape) Modifier.weight(1f) else Modifier,

@@ -33,6 +33,24 @@ internal sealed interface KeypadAction {
     /** The call button. Places a call, or recalls the last dialed number into an empty field. */
     data object CallClicked : KeypadAction
 
+    /**
+     * A character typed on a hardware keyboard, to go in at the cursor as a keypad key would, but
+     * without a tone: the legacy field's key listener did not play one either.
+     */
+    data class CharacterTyped(
+        val char: Char,
+    ) : KeypadAction
+
+    /**
+     * The digits field changed the number or moved its cursor: a paste, a cut, a tap or a drag.
+     * Typing never arrives this way; see [CharacterTyped].
+     */
+    data class DigitsEdited(
+        val text: String,
+        val selectionStart: Int,
+        val selectionEnd: Int,
+    ) : KeypadAction
+
     /** The overflow menu's "Call with a note". */
     data object CallWithNoteClicked : KeypadAction
 }
