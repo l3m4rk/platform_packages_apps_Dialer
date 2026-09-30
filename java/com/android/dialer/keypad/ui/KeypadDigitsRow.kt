@@ -39,7 +39,9 @@ import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadUiState
 
 /** The minimum touch target Material and the accessibility guidelines both ask for. */
-private val TOUCH_TARGET = 48.dp
+// Past the 48dp minimum: after the keys these are the most-hit controls. The legacy backspace was
+// 56dp wide too, its 24dp icon padded by 16dp either side; the overflow now matches it.
+private val TOUCH_TARGET = 56.dp
 private val ICON_SIZE = 24.dp
 
 /**
@@ -163,6 +165,7 @@ private fun OverflowButton(
             enabled = uiState.isOverflowVisible,
             modifier = Modifier
                 .testTag(KEYPAD_OVERFLOW_TEST_TAG)
+                .size(TOUCH_TARGET)
                 .alpha(if (uiState.isOverflowVisible) 1f else 0f),
         ) {
             Icon(

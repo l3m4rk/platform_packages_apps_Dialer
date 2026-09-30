@@ -2,7 +2,9 @@ package com.android.dialer.keypad.ui
 
 import android.os.Build
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -11,6 +13,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadUiState
@@ -162,6 +165,17 @@ class KeypadScreenTest {
             .assertIsDisplayed()
         composeRule.onNodeWithTag(keypadKeyTestTag(KeypadKey.TWO))
             .assertContentDescriptionEquals("۲, A B C")
+    }
+
+    @Test
+    fun theOverflowAndBackspaceHaveLargeTouchTargets() {
+        renderScreen(KeypadUiState(digits = "5", isDeleteEnabled = true, isOverflowVisible = true))
+
+        listOf(KEYPAD_OVERFLOW_TEST_TAG, KEYPAD_DELETE_TEST_TAG).forEach { tag ->
+            composeRule.onNodeWithTag(tag)
+                .assertWidthIsAtLeast(56.dp)
+                .assertHeightIsAtLeast(56.dp)
+        }
     }
 
     private fun textInKey(key: KeypadKey, text: String) =
