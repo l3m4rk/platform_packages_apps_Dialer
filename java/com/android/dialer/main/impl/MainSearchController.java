@@ -40,7 +40,7 @@ import com.android.dialer.common.LogUtil;
 import com.android.dialer.constants.ActivityRequestCodes;
 import com.android.dialer.dialpadview.DialpadFragment.DialpadListener;
 import com.android.dialer.dialpadview.DialpadFragment.OnDialpadQueryChangedListener;
-import com.android.dialer.dialpadview.DialpadFragment;
+import com.android.dialer.keypad.KeypadFragment;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.logging.ScreenEvent;
@@ -100,7 +100,7 @@ public class MainSearchController implements SearchBarListener {
   private boolean callPlacedFromSearch;
   private boolean requestingPermission;
 
-  private DialpadFragment dialpadFragment;
+  private KeypadFragment dialpadFragment;
   private NewSearchFragment searchFragment;
 
   public MainSearchController(
@@ -117,8 +117,11 @@ public class MainSearchController implements SearchBarListener {
     this.toolbarShadow = toolbarShadow;
     this.fragmentContainer = fragmentContainer;
 
+    // The keypad is an AndroidX fragment, so it lives in the support manager; search stays in the
+    // framework one. Each is found, and committed to, in its own manager.
     dialpadFragment =
-        (DialpadFragment) activity.getFragmentManager().findFragmentByTag(DIALPAD_FRAGMENT_TAG);
+        (KeypadFragment)
+            activity.getSupportFragmentManager().findFragmentByTag(DIALPAD_FRAGMENT_TAG);
     searchFragment =
         (NewSearchFragment) activity.getFragmentManager().findFragmentByTag(SEARCH_FRAGMENT_TAG);
   }
@@ -170,17 +173,22 @@ public class MainSearchController implements SearchBarListener {
       transaction.show(searchFragment);
     }
 
+    transaction.commit();
+
     // Show Dialpad
+    androidx.fragment.app.FragmentTransaction dialpadTransaction =
+        activity.getSupportFragmentManager().beginTransaction();
     if (dialpadFragment == null) {
-      dialpadFragment = new DialpadFragment();
+      dialpadFragment = new KeypadFragment();
       dialpadFragment.setStartedFromNewIntent(fromNewIntent);
-      transaction.add(R.id.dialpad_fragment_container, dialpadFragment, DIALPAD_FRAGMENT_TAG);
+      dialpadTransaction.add(
+          R.id.dialpad_fragment_container, dialpadFragment, DIALPAD_FRAGMENT_TAG);
       searchFragment.setQuery("", CallInitiationType.Type.DIALPAD);
     } else {
       dialpadFragment.setStartedFromNewIntent(fromNewIntent);
-      transaction.show(dialpadFragment);
+      dialpadTransaction.show(dialpadFragment);
     }
-    transaction.commit();
+    dialpadTransaction.commit();
 
     notifyListenersOnSearchOpen();
   }
@@ -232,7 +240,11 @@ public class MainSearchController implements SearchBarListener {
           public void onAnimationEnd(Animation animation) {
             if (activity.isSafeToCommitTransactions()
                 && !(activity.isFinishing() || activity.isDestroyed())) {
-              activity.getFragmentManager().beginTransaction().hide(dialpadFragment).commit();
+              activity
+                  .getSupportFragmentManager()
+                  .beginTransaction()
+                  .hide(dialpadFragment)
+                  .commit();
             }
           }
 
@@ -346,24 +358,18 @@ public class MainSearchController implements SearchBarListener {
     toolbarShadow.setVisibility(View.GONE);
     activity.getFragmentManager().beginTransaction().hide(searchFragment).commit();
 
-    // Clear the dialpad so the phone number isn't persisted between search sessions.
+    // Clear the dialpad so the phone number isn't persisted between search sessions. The keypad's
+    // number is not a live region, so clearing it announces nothing; see
+    // KeypadFragment.clearDialpad.
     if (dialpadFragment != null) {
-      // Temporarily disable accessibility when we clear the dialpad, since it should be
-      // invisible and should not announce anything.
-      dialpadFragment
-          .getDigitsWidget()
-          .setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
       dialpadFragment.clearDialpad();
-      dialpadFragment
-          .getDigitsWidget()
-          .setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
     }
 
     notifyListenersOnSearchClose();
   }
 
   @Nullable
-  protected DialpadFragment getDialpadFragment() {
+  protected KeypadFragment getDialpadFragment() {
     return dialpadFragment;
   }
 
@@ -453,7 +459,6 @@ public class MainSearchController implements SearchBarListener {
       searchFragment.setRawNumber(query);
       searchFragment.setQuery(normalizedQuery, CallInitiationType.Type.DIALPAD);
     }
-    dialpadFragment.process_quote_emergency_unquote(normalizedQuery);
   }
 
   @Override
@@ -587,7 +592,7 @@ public class MainSearchController implements SearchBarListener {
   }
 
   @VisibleForTesting
-  void setDialpadFragment(DialpadFragment dialpadFragment) {
+  void setDialpadFragment(KeypadFragment dialpadFragment) {
     this.dialpadFragment = dialpadFragment;
   }
 
