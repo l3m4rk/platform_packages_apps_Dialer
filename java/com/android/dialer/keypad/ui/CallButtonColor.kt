@@ -70,6 +70,6 @@ internal fun callButtonContainerColor(isPseudoEmergencyNumber: Boolean): Color {
                 android.graphics.Color.RED,
             ) as Int,
         )
-        else -> DialerColors.CallContainer
+        else -> DialerColors.callContainer()
     }
 }

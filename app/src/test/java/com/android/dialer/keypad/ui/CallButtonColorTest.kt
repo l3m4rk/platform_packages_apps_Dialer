@@ -39,6 +39,14 @@ class CallButtonColorTest {
     }
 
     @Test
+    @Config(qualifiers = "night")
+    fun isTheLightGreenInTheDarkTheme() {
+        render()
+
+        assertEquals(DialerColors.CallContainerDark, color)
+    }
+
+    @Test
     fun pulsesBetweenBlueAndRed() {
         render()
         startPulse()

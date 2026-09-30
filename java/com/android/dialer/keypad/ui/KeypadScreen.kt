@@ -47,7 +47,10 @@ private val SHEET_HORIZONTAL_PADDING = 8.dp
 private val SHEET_VERTICAL_PADDING = 12.dp
 private val SECTION_SPACING = 12.dp
 private val CALL_BUTTON_MIN_HEIGHT = 56.dp
-private val CALL_BUTTON_HORIZONTAL_PADDING = 28.dp
+
+// Measured from Google's Phone app: a 56dp capsule about 100dp wide, the icon and label close.
+private val CALL_BUTTON_HORIZONTAL_PADDING = 20.dp
+
 private val CALL_ICON_SIZE = 24.dp
 private val CALL_ICON_LABEL_SPACING = 12.dp
 
@@ -188,7 +191,7 @@ private fun CallButton(
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = callButtonContainerColor(isPseudoEmergencyNumber),
-            contentColor = DialerColors.OnCallContainer,
+            contentColor = DialerColors.onCallContainer(),
         ),
         contentPadding = PaddingValues(horizontal = CALL_BUTTON_HORIZONTAL_PADDING),
     ) {
