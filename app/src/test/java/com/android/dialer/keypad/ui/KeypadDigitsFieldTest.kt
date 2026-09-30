@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.text.TextLayoutResult
 import com.android.dialer.keypad.model.DigitsValue
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadUiState
@@ -28,6 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * The number as an editable field, driven through the whole screen. A fake stands in for the view
@@ -35,6 +37,8 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [Build.VERSION_CODES.BAKLAVA], qualifiers = "w411dp-h891dp")
+// Real text measurement: Robolectric's default graphics give every glyph a nominal width.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class KeypadDigitsFieldTest {
 
     @get:Rule(order = 0)
@@ -117,6 +121,29 @@ class KeypadDigitsFieldTest {
 
         // Unfiltered here: the letters become digits in the view model, as for any edit.
         assertEquals("1-800-FLOWERS", lastEdit().text)
+    }
+
+    @Test
+    fun aLongNumberIsLaidOutSmallerThanAShortOne() {
+        field = DigitsValue("555", selectionStart = 3, selectionEnd = 3)
+        render()
+        val short = laidOutFontSize()
+
+        field = DigitsValue(
+            "+372 5123 4567,1234",
+            selectionStart = 19,
+            selectionEnd = 19,
+        )
+        composeRule.waitForIdle()
+
+        assertTrue("${laidOutFontSize()} under $short", laidOutFontSize() < short)
+    }
+
+    private fun laidOutFontSize(): Float {
+        val results = mutableListOf<TextLayoutResult>()
+        composeRule.onNodeWithTag(KEYPAD_DIGITS_TEST_TAG)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
+        return results.single().layoutInput.style.fontSize.value
     }
 
     private fun lastEdit(): KeypadAction.DigitsEdited =

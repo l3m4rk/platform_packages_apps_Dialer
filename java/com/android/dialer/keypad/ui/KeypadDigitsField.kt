@@ -2,6 +2,7 @@ package com.android.dialer.keypad.ui
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +28,9 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.awaitCancellation
 
@@ -50,7 +53,6 @@ import kotlinx.coroutines.awaitCancellation
  * @param focusRequests take focus whenever this changes, as the legacy fragment did each time the
  *   keypad was shown, so that a hardware keyboard types without a tap first.
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun KeypadDigitsField(
     value: TextFieldValue,
@@ -78,6 +80,47 @@ internal fun KeypadDigitsField(
         }
     }
 
+    val style = MaterialTheme.typography.displaySmall.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center,
+    )
+    val measurer = rememberTextMeasurer()
+
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        // A long number shrinks to fit before it scrolls, as ResizingTextEditText made it.
+        val fontSize = digitsFontSize(
+            text = value.text,
+            style = style,
+            maxWidthPx = constraints.maxWidth,
+            measurer = measurer,
+        )
+        DigitsTextField(
+            value = value,
+            style = style.copy(fontSize = fontSize),
+            isCursorVisible = isCursorVisible,
+            focusRequester = focusRequester,
+            interactionSource = interactionSource,
+            onValueChange = onValueChange,
+            onTyped = onTyped,
+            onDelete = onDelete,
+            onEnter = onEnter,
+        )
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun DigitsTextField(
+    value: TextFieldValue,
+    style: TextStyle,
+    isCursorVisible: Boolean,
+    focusRequester: FocusRequester,
+    interactionSource: MutableInteractionSource,
+    onValueChange: (TextFieldValue) -> Unit,
+    onTyped: (Char) -> Unit,
+    onDelete: () -> Unit,
+    onEnter: () -> Unit,
+) {
     // Never the soft keyboard: the keypad is the keyboard. DigitsEditText turned it off with
     // setShowSoftInputOnFocus(false); refusing the input session does the same, while hardware
     // keys, the cursor and the clipboard do not go through it.
@@ -85,7 +128,7 @@ internal fun KeypadDigitsField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxWidth()
                 .testTag(KEYPAD_DIGITS_TEST_TAG)
                 .focusRequester(focusRequester)
@@ -97,10 +140,7 @@ internal fun KeypadDigitsField(
                         onEnter = onEnter,
                     )
                 },
-            textStyle = MaterialTheme.typography.displaySmall.copy(
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            ),
+            textStyle = style,
             singleLine = true,
             cursorBrush = SolidColor(
                 if (isCursorVisible) MaterialTheme.colorScheme.primary else Color.Transparent,
