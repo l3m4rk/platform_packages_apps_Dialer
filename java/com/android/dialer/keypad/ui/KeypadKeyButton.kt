@@ -2,11 +2,15 @@ package com.android.dialer.keypad.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -17,9 +21,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -68,8 +74,8 @@ internal fun KeypadKeyButton(
     secondaryLetters: String? = null,
     longPressLabel: String? = null,
     onLongPress: (() -> Unit)? = null,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     // The legacy keypad ticked on every key, by touch or by a screen reader's activation alike,
     // and its long presses got the View's own long-press feedback.
@@ -78,6 +84,11 @@ internal fun KeypadKeyButton(
     val onLongPressWithFeedback = onLongPress?.let { longPress ->
         haptics.before(HapticFeedbackType.LongPress, longPress)
     }
+    // Read through state so that the gesture in progress keeps running when the key recomposes,
+    // which its pressed shape makes it do mid-press, yet still calls the latest callbacks.
+    val currentOnPress by rememberUpdatedState(onPressWithFeedback)
+    val currentOnRelease by rememberUpdatedState(onRelease)
+    val currentOnLongPress by rememberUpdatedState(onLongPressWithFeedback)
     val corner by animateDpAsState(
         targetValue = if (isPressed) KEY_PRESSED_CORNER else KEY_RESTING_CORNER,
         animationSpec = DialerMotion.fastSpatial(),
@@ -90,9 +101,10 @@ internal fun KeypadKeyButton(
             .heightIn(min = if (isCompact) COMPACT_KEY_MIN_HEIGHT else KEY_MIN_HEIGHT)
             .keyPressGestures(
                 key = key,
-                onPress = onPressWithFeedback,
-                onRelease = onRelease,
-                onLongPress = onLongPressWithFeedback,
+                interactionSource = interactionSource,
+                onPress = { currentOnPress() },
+                onRelease = { currentOnRelease() },
+                onLongPress = onLongPress?.let { { currentOnLongPress?.invoke() } },
             )
             .keySemantics(
                 description = keyContentDescription(key, digit),
@@ -106,12 +118,20 @@ internal fun KeypadKeyButton(
         color = MaterialTheme.colorScheme.surfaceBright,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        KeyLabel(
-            key = key,
-            digit = digit,
-            secondaryLetters = secondaryLetters,
-            isCompact = isCompact,
-        )
+        // Inside the surface, so the ripple is clipped to the key's changing shape.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .indication(interactionSource = interactionSource, indication = ripple()),
+            contentAlignment = Alignment.Center,
+        ) {
+            KeyLabel(
+                key = key,
+                digit = digit,
+                secondaryLetters = secondaryLetters,
+                isCompact = isCompact,
+            )
+        }
     }
 }
 
@@ -195,18 +215,29 @@ private fun HapticFeedback.before(type: HapticFeedbackType, action: () -> Unit):
     action()
 }
 
+/**
+ * The touch edges, reported both to the caller and to [interactionSource]: detectTapGestures
+ * reports no interactions of its own, and without them the key would show neither a ripple nor its
+ * pressed shape.
+ */
 private fun Modifier.keyPressGestures(
     key: KeypadKey,
+    interactionSource: MutableInteractionSource,
     onPress: () -> Unit,
     onRelease: () -> Unit,
     onLongPress: (() -> Unit)?,
-): Modifier = pointerInput(key, onLongPress) {
+): Modifier = pointerInput(key, interactionSource, onLongPress != null) {
     detectTapGestures(
-        onPress = {
+        onPress = { offset ->
+            val press = PressInteraction.Press(offset)
+            interactionSource.emit(press)
             onPress()
-            // Returns false when the gesture is canceled rather than released — a finger sliding
-            // off the key. Either way the tone has to stop, so the result is deliberately ignored.
-            tryAwaitRelease()
+            // False when the gesture is canceled rather than released: a finger sliding off the
+            // key. Either way the tone has to stop; only the ripple needs to know which.
+            val released = tryAwaitRelease()
+            interactionSource.emit(
+                if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press),
+            )
             onRelease()
         },
         onLongPress = onLongPress?.let { { _ -> it() } },
