@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.android.dialer.keypad.model.KeypadKey
@@ -63,6 +64,8 @@ internal fun KeypadKeyButton(
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
     isCompact: Boolean = false,
+    digit: String = key.char.toString(),
+    secondaryLetters: String? = null,
     longPressLabel: String? = null,
     onLongPress: (() -> Unit)? = null,
 ) {
@@ -92,7 +95,7 @@ internal fun KeypadKeyButton(
                 onLongPress = onLongPressWithFeedback,
             )
             .keySemantics(
-                key = key,
+                description = keyContentDescription(key, digit),
                 onPress = onPressWithFeedback,
                 onRelease = onRelease,
                 longPressLabel = longPressLabel,
@@ -103,35 +106,50 @@ internal fun KeypadKeyButton(
         color = MaterialTheme.colorScheme.surfaceBright,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        if (isCompact) {
-            // Side by side, as the legacy landscape keys were, to spend width rather than height.
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    space = COMPACT_SUBTITLE_SPACING,
-                    alignment = Alignment.CenterHorizontally,
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                KeyDigit(key = key)
-                KeySubtitle(key = key)
-            }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                KeyDigit(key = key)
-                KeySubtitle(key = key)
-            }
+        KeyLabel(
+            key = key,
+            digit = digit,
+            secondaryLetters = secondaryLetters,
+            isCompact = isCompact,
+        )
+    }
+}
+
+@Composable
+private fun KeyLabel(
+    key: KeypadKey,
+    digit: String,
+    secondaryLetters: String?,
+    isCompact: Boolean,
+) {
+    if (isCompact) {
+        // Side by side, as the legacy landscape keys were, to spend width rather than height.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(
+                space = COMPACT_SUBTITLE_SPACING,
+                alignment = Alignment.CenterHorizontally,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            KeyDigit(digit = digit)
+            KeySubtitle(key = key, secondaryLetters = secondaryLetters)
+        }
+    } else {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            KeyDigit(digit = digit)
+            KeySubtitle(key = key, secondaryLetters = secondaryLetters)
         }
     }
 }
 
 @Composable
-private fun KeyDigit(key: KeypadKey) {
+private fun KeyDigit(digit: String) {
     Text(
-        text = key.char.toString(),
+        text = digit,
         style = MaterialTheme.typography.headlineLarge,
         textAlign = TextAlign.Center,
     )
@@ -139,7 +157,7 @@ private fun KeyDigit(key: KeypadKey) {
 
 /** The voicemail glyph under 1, the letters under 2-9 and the `+` under 0; nothing for `*` or `#`. */
 @Composable
-private fun KeySubtitle(key: KeypadKey) {
+private fun KeySubtitle(key: KeypadKey, secondaryLetters: String?) {
     when {
         key == KeypadKey.ONE -> Icon(
             imageVector = Icons.Rounded.Voicemail,
@@ -149,13 +167,26 @@ private fun KeySubtitle(key: KeypadKey) {
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(VOICEMAIL_GLYPH_SIZE),
         )
-        key.letters.isNotEmpty() -> Text(
-            text = key.letters,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+        key.letters.isNotEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // Smaller with two alphabets, as DialpadView sized its letters for dual alphabets.
+            val style = when (secondaryLetters) {
+                null -> MaterialTheme.typography.bodyMedium
+                else -> MaterialTheme.typography.labelSmall
+            }
+            KeyLetters(letters = key.letters, style = style)
+            secondaryLetters?.let { letters -> KeyLetters(letters = letters, style = style) }
+        }
     }
+}
+
+@Composable
+private fun KeyLetters(letters: String, style: TextStyle) {
+    Text(
+        text = letters,
+        style = style,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
 }
 
 /** [action], preceded by a haptic tick of [type]. */
@@ -190,13 +221,13 @@ private fun Modifier.keyPressGestures(
  * pronouncing "abc" as a word.
  */
 private fun Modifier.keySemantics(
-    key: KeypadKey,
+    description: String,
     onPress: () -> Unit,
     onRelease: () -> Unit,
     longPressLabel: String?,
     onLongPress: (() -> Unit)?,
 ): Modifier = semantics(mergeDescendants = true) {
-    contentDescription = keyContentDescription(key)
+    contentDescription = description
     onClick {
         onPress()
         onRelease()
@@ -220,7 +251,9 @@ private fun Modifier.keySemantics(
  * accessibility test rather than here.
  *
  */
-internal fun keyContentDescription(key: KeypadKey): String = when {
-    key.letters.isEmpty() -> key.char.toString()
-    else -> "${key.char}, " + key.letters.toCharArray().joinToString(separator = " ")
-}
+internal fun keyContentDescription(key: KeypadKey, digit: String = key.char.toString()): String =
+    when {
+        // DialpadView gave 0 its digit alone: its + is announced by the long-press label instead.
+        key.letters.isEmpty() || key == KeypadKey.ZERO -> digit
+        else -> "$digit, " + key.letters.toCharArray().joinToString(separator = " ")
+    }

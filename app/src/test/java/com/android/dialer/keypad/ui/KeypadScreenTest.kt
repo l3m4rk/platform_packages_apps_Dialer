@@ -1,7 +1,12 @@
 package com.android.dialer.keypad.ui
 
 import android.os.Build
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -11,6 +16,7 @@ import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadUiState
 import com.android.dialer.testutil.composeActivityRule
 import com.android.dialer.theme.compose.DialerTheme
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -123,15 +129,53 @@ class KeypadScreenTest {
     fun keyDescriptionsSpellTheirLetters() {
         assertEquals("2, A B C", keyContentDescription(KeypadKey.TWO))
         assertEquals("1", keyContentDescription(KeypadKey.ONE))
-        assertEquals("0, +", keyContentDescription(KeypadKey.ZERO))
+        // As DialpadView described it: the + is announced by the long-press label instead.
+        assertEquals("0", keyContentDescription(KeypadKey.ZERO))
     }
 
-    private fun renderScreen(uiState: KeypadUiState = KeypadUiState()) {
+    @Test
+    fun aSecondAlphabetShowsUnderTheLatinLetters() {
+        renderScreen(strings = testKeypadStrings().copy(keyLabels = RUSSIAN_LABELS))
+
+        composeRule.onNode(textInKey(KeypadKey.TWO, "ABC"), useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNode(textInKey(KeypadKey.TWO, "АБВГ"), useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun keysInARowStayTheSameHeightWithASecondAlphabet() {
+        renderScreen(strings = testKeypadStrings().copy(keyLabels = RUSSIAN_LABELS))
+
+        // 1 has no letters at all, 2 has two rows of them.
+        val one = composeRule.onNodeWithTag(keypadKeyTestTag(KeypadKey.ONE)).getBoundsInRoot()
+        val two = composeRule.onNodeWithTag(keypadKeyTestTag(KeypadKey.TWO)).getBoundsInRoot()
+        assertEquals((two.bottom - two.top).value, (one.bottom - one.top).value, 0.5f)
+    }
+
+    @Test
+    fun aPersianKeyShowsAndReadsItsPersianDigit() {
+        val persian = KeypadKeyLabels.of(Locale.forLanguageTag("fa"), secondaryKeyToChars = null)
+        renderScreen(strings = testKeypadStrings().copy(keyLabels = persian))
+
+        composeRule.onNode(textInKey(KeypadKey.TWO, "۲"), useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag(keypadKeyTestTag(KeypadKey.TWO))
+            .assertContentDescriptionEquals("۲, A B C")
+    }
+
+    private fun textInKey(key: KeypadKey, text: String) =
+        hasText(text) and hasAnyAncestor(hasTestTag(keypadKeyTestTag(key)))
+
+    private fun renderScreen(
+        uiState: KeypadUiState = KeypadUiState(),
+        strings: KeypadStrings = testKeypadStrings(),
+    ) {
         composeRule.setContent {
             DialerTheme {
                 KeypadScreen(
                     uiState = uiState,
-                    strings = testKeypadStrings(),
+                    strings = strings,
                     onAction = { action -> actions += action },
                 )
             }
@@ -149,4 +193,13 @@ class KeypadScreenTest {
         addWait = "Add wait",
         callWithNote = "Call with a note",
     )
+
+    private companion object {
+        private val RUSSIAN_LABELS = KeypadKeyLabels.of(
+            locale = Locale.forLanguageTag("ru"),
+            secondaryKeyToChars = arrayOf(
+                "", "", "АБВГ", "ДЕЁЖЗ", "ИЙКЛ", "МНОП", "РСТУ", "ФХЦЧ", "ШЩЪЫ", "ЬЭЮЯ", "", "",
+            ),
+        )
+    }
 }

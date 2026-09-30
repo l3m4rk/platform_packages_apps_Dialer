@@ -25,6 +25,7 @@ internal data class KeypadStrings(
     val addPause: String,
     val addWait: String,
     val callWithNote: String,
+    val keyLabels: KeypadKeyLabels = KeypadKeyLabels(),
 )
 
 @Composable
@@ -38,4 +39,5 @@ internal fun keypadStrings(): KeypadStrings = KeypadStrings(
     addPause = stringResource(R.string.add_2sec_pause),
     addWait = stringResource(R.string.add_wait),
     callWithNote = stringResource(R.string.call_with_a_note),
+    keyLabels = keypadKeyLabels(),
 )

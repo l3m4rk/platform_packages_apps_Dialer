@@ -162,7 +162,7 @@ public class DialpadCharMappings {
    * Returns the key-characters map of the given ISO 639-2 language code of the 1st language
    * preference or null if no key-characters map for the language code is defined.
    */
-  static String[] getKeyToCharsMap(@NonNull Context context) {
+  public static String[] getKeyToCharsMap(@NonNull Context context) {
     return KEY_TO_CHAR_MAPS.get(LocaleUtils.getLocale(context).getISO3Language());
   }
 

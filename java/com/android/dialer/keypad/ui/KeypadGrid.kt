@@ -2,9 +2,11 @@ package com.android.dialer.keypad.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,10 +39,14 @@ internal fun KeypadGrid(
     ) {
         KEY_ROWS.forEach { row ->
             Row(
-                // Compact rows split the grid's height evenly; otherwise each is as tall as its keys.
+                // Compact rows split the grid's height evenly. Otherwise a row is as tall as its
+                // tallest key and the others stretch to match, so a second alphabet under 2 does
+                // not leave 1 shorter beside it; DialpadView equalized its keys the same way.
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(if (isCompact) Modifier.weight(1f) else Modifier),
+                    .then(
+                        if (isCompact) Modifier.weight(1f) else Modifier.height(IntrinsicSize.Min),
+                    ),
                 horizontalArrangement = Arrangement.spacedBy(KEY_SPACING),
             ) {
                 row.forEach { key ->
@@ -52,7 +58,7 @@ internal fun KeypadGrid(
                         // Drawn displaced, laid out in place, as the View translation was.
                         modifier = Modifier
                             .weight(1f)
-                            .then(if (isCompact) Modifier.fillMaxHeight() else Modifier)
+                            .fillMaxHeight()
                             .graphicsLayer {
                                 if (entranceLayout == KeyEntranceLayout.PORTRAIT) {
                                     translationY = entranceOffset.value
@@ -61,6 +67,8 @@ internal fun KeypadGrid(
                                 }
                             },
                         isCompact = isCompact,
+                        digit = strings.keyLabels.digit(key),
+                        secondaryLetters = strings.keyLabels.secondaryLetters(key),
                         longPressLabel = longPressLabel(key = key, strings = strings),
                         onLongPress = longPressAction(key = key, onAction = onAction),
                     )

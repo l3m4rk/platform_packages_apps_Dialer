@@ -60,6 +60,32 @@ private fun KeypadScreenLargeFontPreview() {
     }
 }
 
+/** Russian: the Cyrillic letters under the Latin ones, as the legacy keypad showed them. */
+@Preview(locale = "ru")
+@Composable
+private fun KeypadScreenSecondAlphabetPreview() {
+    DialerPreviewTheme {
+        KeypadScreen(
+            uiState = KeypadUiState(),
+            strings = previewKeypadStrings().copy(keyLabels = keypadKeyLabels()),
+            onAction = {},
+        )
+    }
+}
+
+/** Persian: Persian digits on the keys. */
+@Preview(locale = "fa")
+@Composable
+private fun KeypadScreenPersianDigitsPreview() {
+    DialerPreviewTheme {
+        KeypadScreen(
+            uiState = KeypadUiState(),
+            strings = previewKeypadStrings().copy(keyLabels = keypadKeyLabels()),
+            onAction = {},
+        )
+    }
+}
+
 /** A landscape phone: the keypad beside the search results, its keys compact. */
 @Preview(device = "spec:width=891dp,height=411dp,orientation=landscape", showBackground = true)
 @Composable
