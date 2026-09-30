@@ -26,11 +26,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadUiState
 
@@ -112,6 +116,7 @@ private fun DeleteButton(
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Box(
         modifier = Modifier
             .testTag(KEYPAD_DELETE_TEST_TAG)
@@ -122,7 +127,10 @@ private fun DeleteButton(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = false, radius = TOUCH_TARGET / 2),
                 onClickLabel = strings.deleteButton,
-                onClick = { onAction(KeypadAction.DeleteClicked) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                    onAction(KeypadAction.DeleteClicked)
+                },
                 onLongClick = { onAction(KeypadAction.DeleteLongPressed) },
             ),
         contentAlignment = Alignment.Center,
@@ -144,6 +152,10 @@ private fun OverflowButton(
     onAction: (KeypadAction) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // The legacy PopupMenu was dismissed in onPause, so it was never found open on return.
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        expanded = false
+    }
 
     Box {
         IconButton(

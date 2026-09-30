@@ -155,6 +155,7 @@ class KeypadFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
+        viewModel.onHostPaused()
         // Cancels a SIM contact lookup still in flight, so it does not try to dismiss its progress
         // dialog after the activity has gone. DialpadFragment did the same.
         SpecialCharSequenceMgr.cleanup()

@@ -30,6 +30,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
@@ -174,8 +176,12 @@ private fun CallButton(
     strings: KeypadStrings,
     onAction: (KeypadAction) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Button(
-        onClick = { onAction(KeypadAction.CallClicked) },
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.VirtualKey)
+            onAction(KeypadAction.CallClicked)
+        },
         modifier = Modifier
             .testTag(KEYPAD_CALL_TEST_TAG)
             .heightIn(min = CALL_BUTTON_MIN_HEIGHT),

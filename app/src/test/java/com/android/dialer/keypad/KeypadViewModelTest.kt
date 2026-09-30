@@ -454,6 +454,32 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     // endregion
 
+    // region pause
+
+    @Test
+    fun pausingStopsATonePlayingUnderAHeldKey() {
+        val viewModel = createViewModel()
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.FIVE))
+
+        viewModel.onHostPaused()
+
+        verify(exactly = 1) { tonePlayer.stop() }
+    }
+
+    @Test
+    fun pausingForgetsHeldKeys() {
+        val viewModel = createViewModel()
+        viewModel.onAction(KeypadAction.KeyPressed(KeypadKey.ZERO))
+
+        viewModel.onHostPaused()
+        viewModel.onAction(KeypadAction.PlusKeyLongPressed)
+
+        // 0 no longer counts as held, so its long press adds a + without taking the 0 back.
+        assertEquals("0+", viewModel.uiState.value.digits)
+    }
+
+    // endregion
+
     // region formatting
 
     @Test

@@ -204,6 +204,11 @@ internal class KeypadViewModel @Inject constructor(
         viewModelScope.launch { lastDialedNumber = lastOutgoingCall() }
     }
 
+    override fun onHostPaused() {
+        tonePlayer.stop()
+        pressedKeys.clear()
+    }
+
     override fun onHostStopped() {
         tonePlayer.release()
         pressedKeys.clear()

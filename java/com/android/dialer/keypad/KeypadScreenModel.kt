@@ -23,6 +23,12 @@ internal interface KeypadScreenModel {
     /** Acquires the tone generator and refreshes state that can change while away. */
     fun onHostStarted()
 
+    /**
+     * Stops any tone and forgets held keys, as DialpadFragment did in onPause: a dialog or split
+     * screen can pause the keypad without stopping it, with a finger still on a key.
+     */
+    fun onHostPaused()
+
     fun onHostStopped()
 
     /**

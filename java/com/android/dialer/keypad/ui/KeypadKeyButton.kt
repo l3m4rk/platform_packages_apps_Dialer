@@ -22,7 +22,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -65,6 +68,13 @@ internal fun KeypadKeyButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    // The legacy keypad ticked on every key, by touch or by a screen reader's activation alike,
+    // and its long presses got the View's own long-press feedback.
+    val haptics = LocalHapticFeedback.current
+    val onPressWithFeedback = haptics.before(HapticFeedbackType.VirtualKey, onPress)
+    val onLongPressWithFeedback = onLongPress?.let { longPress ->
+        haptics.before(HapticFeedbackType.LongPress, longPress)
+    }
     val corner by animateDpAsState(
         targetValue = if (isPressed) KEY_PRESSED_CORNER else KEY_RESTING_CORNER,
         animationSpec = DialerMotion.fastSpatial(),
@@ -77,16 +87,16 @@ internal fun KeypadKeyButton(
             .heightIn(min = if (isCompact) COMPACT_KEY_MIN_HEIGHT else KEY_MIN_HEIGHT)
             .keyPressGestures(
                 key = key,
-                onPress = onPress,
+                onPress = onPressWithFeedback,
                 onRelease = onRelease,
-                onLongPress = onLongPress,
+                onLongPress = onLongPressWithFeedback,
             )
             .keySemantics(
                 key = key,
-                onPress = onPress,
+                onPress = onPressWithFeedback,
                 onRelease = onRelease,
                 longPressLabel = longPressLabel,
-                onLongPress = onLongPress,
+                onLongPress = onLongPressWithFeedback,
             ),
         shape = RoundedCornerShape(corner),
         // Brighter than the sheet in both light and dark themes, so the keys read as raised.
@@ -146,6 +156,12 @@ private fun KeySubtitle(key: KeypadKey) {
             textAlign = TextAlign.Center,
         )
     }
+}
+
+/** [action], preceded by a haptic tick of [type]. */
+private fun HapticFeedback.before(type: HapticFeedbackType, action: () -> Unit): () -> Unit = {
+    performHapticFeedback(type)
+    action()
 }
 
 private fun Modifier.keyPressGestures(
