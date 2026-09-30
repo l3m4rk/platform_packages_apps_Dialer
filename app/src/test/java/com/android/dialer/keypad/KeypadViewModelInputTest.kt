@@ -1,6 +1,7 @@
 package com.android.dialer.keypad
 
 import android.content.Intent
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadKey
@@ -230,4 +231,88 @@ class KeypadViewModelInputTest : BaseKeypadViewModelTest() {
     }
 
     // endregion
+
+    // region saved state
+
+    @Test
+    fun theNumberAndItsCursorAreSaved() {
+        val handle = SavedStateHandle()
+        val viewModel = createViewModel(handle)
+        viewModel.press(KeypadKey.ONE, KeypadKey.THREE)
+
+        viewModel.onAction(KeypadAction.DigitsEdited("13", selectionStart = 1, selectionEnd = 1))
+
+        assertEquals("13", handle.get<String>(KEY_DIGITS))
+        assertEquals(1, handle.get<Int>(KEY_SELECTION_START))
+        assertEquals(1, handle.get<Int>(KEY_SELECTION_END))
+    }
+
+    @Test
+    fun aSavedNumberComesBackWithItsCursor() {
+        val handle = savedNumber("555-1234", cursor = 3)
+
+        val viewModel = createViewModel(handle)
+        viewModel.onAction(KeypadAction.CharacterTyped('9'))
+
+        assertEquals("5559-1234", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun theIntentFlagIsSavedWhileTheNumberCameFromAnotherApp() {
+        coEvery { dialIntentNumber(any()) } returns "555"
+        val handle = SavedStateHandle()
+        val viewModel = createViewModel(handle)
+
+        viewModel.fillFromDialIntent(Intent(Intent.ACTION_DIAL))
+        assertEquals(true, handle.get<Boolean>(KEY_FILLED_BY_INTENT))
+
+        viewModel.clearDigits()
+        assertEquals(false, handle.get<Boolean>(KEY_FILLED_BY_INTENT))
+    }
+
+    @Test
+    fun aRestoredNumberFromAnotherAppStillCannotRunACode() = runTest {
+        val handle = savedNumber("*#06", cursor = 4, filledByIntent = true)
+        val viewModel = createViewModel(handle)
+
+        viewModel.effects.test {
+            viewModel.press(KeypadKey.POUND)
+
+            expectNoEvents()
+        }
+        assertEquals("*#06#", viewModel.uiState.value.digits)
+    }
+
+    @Test
+    fun aRestoredNumberTheUserTypedRunsCodesAsBefore() = runTest {
+        val viewModel = createViewModel(savedNumber("*#06", cursor = 4))
+
+        viewModel.effects.test {
+            viewModel.press(KeypadKey.POUND)
+
+            assertEquals(KeypadScreenEffect.RunSpecialCode("*#06#"), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // endregion
+
+    private fun savedNumber(text: String, cursor: Int, filledByIntent: Boolean = false) =
+        SavedStateHandle(
+            mapOf(
+                KEY_DIGITS to text,
+                KEY_SELECTION_START to cursor,
+                KEY_SELECTION_END to cursor,
+                KEY_FILLED_BY_INTENT to filledByIntent,
+            ),
+        )
+
+    private companion object {
+        // The view model's own keys are private. Spelled out again here on purpose: saved state
+        // outlives the process, so renaming a key would silently drop what a user had typed.
+        private const val KEY_DIGITS = "keypad_digits"
+        private const val KEY_SELECTION_START = "keypad_selection_start"
+        private const val KEY_SELECTION_END = "keypad_selection_end"
+        private const val KEY_FILLED_BY_INTENT = "keypad_filled_by_intent"
+    }
 }

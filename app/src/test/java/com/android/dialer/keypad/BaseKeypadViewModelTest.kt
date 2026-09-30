@@ -1,6 +1,7 @@
 package com.android.dialer.keypad
 
 import android.os.Build
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.android.dialer.keypad.domain.CallWithNoteAvailability
 import com.android.dialer.keypad.domain.CheckIfNumberIsProhibited
@@ -55,7 +56,9 @@ abstract class BaseKeypadViewModelTest {
         every { callWithNoteAvailability.isAvailable() } returns false
     }
 
-    internal fun createViewModel() = KeypadViewModel(
+    internal fun createViewModel(
+        savedStateHandle: SavedStateHandle = SavedStateHandle(),
+    ) = KeypadViewModel(
         tonePlayer = tonePlayer,
         voicemailAvailability = voicemailAvailability,
         emergencyCallWarning = emergencyCallWarning,
@@ -65,6 +68,7 @@ abstract class BaseKeypadViewModelTest {
         dialIntentNumber = dialIntentNumber,
         vibration = vibration,
         callWithNoteAvailability = callWithNoteAvailability,
+        savedStateHandle = savedStateHandle,
     )
 
     internal fun KeypadViewModel.press(vararg keys: KeypadKey) {

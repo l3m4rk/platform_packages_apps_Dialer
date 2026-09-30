@@ -2,6 +2,7 @@ package com.android.dialer.keypad
 
 import android.content.Intent
 import android.media.ToneGenerator
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.dialer.keypad.domain.CallWithNoteAvailability
@@ -55,6 +56,7 @@ internal class KeypadViewModel @Inject constructor(
     private val dialIntentNumber: DialIntentNumber,
     private val vibration: Vibration,
     private val callWithNoteAvailability: CallWithNoteAvailability,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel(),
     KeypadScreenModel {
 
@@ -86,8 +88,15 @@ internal class KeypadViewModel @Inject constructor(
      *
      * Special codes are only run for what the user types. Otherwise any app could send a `tel:`
      * link that reads out the IMEI or runs an MMI code the moment the keypad opens.
+     *
+     * Kept in [savedStateHandle] with the number, as DialpadFragment kept it in its saved state:
+     * a number restored after the process was killed must stay unable to run a code.
      */
-    private var isFilledByIntent = false
+    private var isFilledByIntent: Boolean
+        get() = savedStateHandle[KEY_FILLED_BY_INTENT] ?: false
+        set(value) {
+            savedStateHandle[KEY_FILLED_BY_INTENT] = value
+        }
 
     /** Buzzes along with the pseudo-emergency pulse, from when the number is spelled until it isn't. */
     private var pseudoEmergencyPulses: Job? = null
@@ -137,6 +146,17 @@ internal class KeypadViewModel @Inject constructor(
     override val effects: Flow<KeypadScreenEffect> = _effects.asSharedFlow()
 
     init {
+        restoreDigits()
+
+        // What the legacy EditText saved with the activity: the number and where its cursor was.
+        digits.value
+            .onEach { value ->
+                savedStateHandle[KEY_DIGITS] = value.text
+                savedStateHandle[KEY_SELECTION_START] = value.selectionStart
+                savedStateHandle[KEY_SELECTION_END] = value.selectionEnd
+            }
+            .launchIn(viewModelScope)
+
         // The keypad accepts input before this arrives; formatting simply starts applying once it
         // does, which is what the fragment did too.
         viewModelScope.launch {
@@ -338,6 +358,25 @@ internal class KeypadViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Puts back the number the process last saved, before anything watches the digits: the
+     * intent flag comes back with it, so a restored number from another app is never taken for
+     * typing.
+     */
+    private fun restoreDigits() {
+        val text = savedStateHandle.get<String>(KEY_DIGITS)
+        if (text.isNullOrEmpty()) {
+            return
+        }
+        digits.setText(text)
+        digits.setSelection(
+            start = savedStateHandle.get<Int>(KEY_SELECTION_START)?.coerceIn(0, digits.length)
+                ?: digits.length,
+            end = savedStateHandle.get<Int>(KEY_SELECTION_END)?.coerceIn(0, digits.length)
+                ?: digits.length,
+        )
+    }
+
     private fun refreshEmergencyCallWarning() {
         isEmergencyCallWarningActive.value = emergencyCallWarning.shouldShow()
     }
@@ -348,5 +387,10 @@ internal class KeypadViewModel @Inject constructor(
 
     private companion object {
         private val VOICEMAIL_LONG_PRESS_ALLOWED = setOf("", "1", "11")
+
+        private const val KEY_DIGITS = "keypad_digits"
+        private const val KEY_SELECTION_START = "keypad_selection_start"
+        private const val KEY_SELECTION_END = "keypad_selection_end"
+        private const val KEY_FILLED_BY_INTENT = "keypad_filled_by_intent"
     }
 }
