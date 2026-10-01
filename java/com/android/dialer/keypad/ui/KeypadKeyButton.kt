@@ -45,23 +45,18 @@ import com.android.dialer.theme.compose.DialerMotion
 
 private val KEY_MIN_HEIGHT = 64.dp
 
-// Short enough for four rows, the number and the call button in a landscape phone's height.
+// Four rows, the number and the call button must fit a landscape phone's height.
 private val COMPACT_KEY_MIN_HEIGHT = 40.dp
 private val COMPACT_SUBTITLE_SPACING = 6.dp
 
-// Half the minimum height, so a key at rest is a full pill, as in Google's Phone app. A press
-// squares it off with an expressive spring.
+// Half the minimum height: a full pill at rest, squared off by a press.
 private val KEY_RESTING_CORNER = 32.dp
 private val KEY_PRESSED_CORNER = 16.dp
 private val VOICEMAIL_GLYPH_SIZE = 18.dp
 
 /**
- * One key of the dialpad.
- *
- * Press and release are reported separately, not as a click: a key starts a DTMF tone when it goes
- * down and stops it when it comes up, so the two edges must always be paired. [onPress] fires on
- * touch-down and [onRelease] on touch-up *or* cancellation, so sliding a finger off the key still
- * stops its tone.
+ * Reports press and release rather than a click, as a key's tone runs between them. [onRelease]
+ * also fires on cancellation, so a finger sliding off still stops the tone.
  */
 @Composable
 internal fun KeypadKeyButton(
@@ -77,15 +72,12 @@ internal fun KeypadKeyButton(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     val isPressed by interactionSource.collectIsPressedAsState()
-    // The legacy keypad ticked on every key, by touch or by a screen reader's activation alike,
-    // and its long presses got the View's own long-press feedback.
     val haptics = LocalHapticFeedback.current
     val onPressWithFeedback = haptics.before(HapticFeedbackType.VirtualKey, onPress)
     val onLongPressWithFeedback = onLongPress?.let { longPress ->
         haptics.before(HapticFeedbackType.LongPress, longPress)
     }
-    // Read through state so that the gesture in progress keeps running when the key recomposes,
-    // which its pressed shape makes it do mid-press, yet still calls the latest callbacks.
+    // The pressed shape recomposes the key mid-press; this keeps the gesture running.
     val currentOnPress by rememberUpdatedState(onPressWithFeedback)
     val currentOnRelease by rememberUpdatedState(onRelease)
     val currentOnLongPress by rememberUpdatedState(onLongPressWithFeedback)
@@ -114,7 +106,6 @@ internal fun KeypadKeyButton(
                 onLongPress = onLongPressWithFeedback,
             ),
         shape = RoundedCornerShape(corner),
-        // Brighter than the sheet in both light and dark themes, so the keys read as raised.
         color = MaterialTheme.colorScheme.surfaceBright,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
@@ -143,7 +134,6 @@ private fun KeyLabel(
     isCompact: Boolean,
 ) {
     if (isCompact) {
-        // Side by side, as the legacy landscape keys were, to spend width rather than height.
         Row(
             horizontalArrangement = Arrangement.spacedBy(
                 space = COMPACT_SUBTITLE_SPACING,
@@ -175,20 +165,17 @@ private fun KeyDigit(digit: String) {
     )
 }
 
-/** The voicemail glyph under 1, the letters under 2-9 and the `+` under 0; nothing for `*` or `#`. */
 @Composable
 private fun KeySubtitle(key: KeypadKey, secondaryLetters: String?) {
     when {
         key == KeypadKey.ONE -> Icon(
             imageVector = Icons.Rounded.Voicemail,
-            // Described by the key's long-press label instead; announcing an icon here would only
-            // repeat it.
+            // The key's long-press label already says it.
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(VOICEMAIL_GLYPH_SIZE),
         )
         key.letters.isNotEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Smaller with two alphabets, as DialpadView sized its letters for dual alphabets.
             val style = when (secondaryLetters) {
                 null -> MaterialTheme.typography.bodyMedium
                 else -> MaterialTheme.typography.labelSmall
@@ -209,17 +196,12 @@ private fun KeyLetters(letters: String, style: TextStyle) {
     )
 }
 
-/** [action], preceded by a haptic tick of [type]. */
 private fun HapticFeedback.before(type: HapticFeedbackType, action: () -> Unit): () -> Unit = {
     performHapticFeedback(type)
     action()
 }
 
-/**
- * The touch edges, reported both to the caller and to [interactionSource]: detectTapGestures
- * reports no interactions of its own, and without them the key would show neither a ripple nor its
- * pressed shape.
- */
+// detectTapGestures emits no interactions, so they are emitted here for the ripple and shape.
 private fun Modifier.keyPressGestures(
     key: KeypadKey,
     interactionSource: MutableInteractionSource,
@@ -232,8 +214,6 @@ private fun Modifier.keyPressGestures(
             val press = PressInteraction.Press(offset)
             interactionSource.emit(press)
             onPress()
-            // False when the gesture is canceled rather than released: a finger sliding off the
-            // key. Either way the tone has to stop; only the ripple needs to know which.
             val released = tryAwaitRelease()
             interactionSource.emit(
                 if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press),
@@ -244,13 +224,8 @@ private fun Modifier.keyPressGestures(
     )
 }
 
-/**
- * Explicit semantics, because [detectTapGestures] contributes none.
- *
- * An accessibility activation has to produce *both* edges, or the tone it starts is never stopped.
- * The description reads the digit, pauses, then spells the letters out one by one rather than
- * pronouncing "abc" as a word.
- */
+// detectTapGestures contributes no semantics. An activation must send both edges, or its tone never
+// stops.
 private fun Modifier.keySemantics(
     description: String,
     onPress: () -> Unit,
@@ -273,18 +248,12 @@ private fun Modifier.keySemantics(
 }
 
 /**
- * The digit, a pause, then the letters separated so a screen reader spells them rather than
- * pronouncing "abc" as a word.
- *
- * The View keypad achieved the spelling with a `VerbatimTtsSpan` over the letters. Compose's
- * `contentDescription` is a plain `String` and carries no annotations, so the spacing does the same
- * job. Whether it actually reads correctly is a real-device question, covered by the instrumented
- * accessibility test rather than here.
- *
+ * "2, A B C": spaced letters are spelled out rather than read as a word, as `contentDescription`
+ * takes no `TtsSpan`.
  */
 internal fun keyContentDescription(key: KeypadKey, digit: String = key.char.toString()): String =
     when {
-        // DialpadView gave 0 its digit alone: its + is announced by the long-press label instead.
+        // 0's + is announced by its long-press label.
         key.letters.isEmpty() || key == KeypadKey.ZERO -> digit
         else -> "$digit, " + key.letters.toCharArray().joinToString(separator = " ")
     }

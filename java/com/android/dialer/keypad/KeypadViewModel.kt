@@ -44,7 +44,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// An injected constructor is as long as its dependencies.
 @Suppress("LongParameterList")
 @HiltViewModel
 internal class KeypadViewModel @Inject constructor(
@@ -63,35 +62,17 @@ internal class KeypadViewModel @Inject constructor(
 
     private val digits = DialpadDigits()
 
-    /**
-     * Which keys are currently held.
-     *
-     * A tone runs until every finger is lifted, so releasing one key of two must not silence the
-     * other. The View keypad tracked this the same way, and getting it wrong leaves a tone playing
-     * or cuts it off early.
-     */
+    /** Held keys: the tone stops only when the last finger lifts. */
     private val pressedKeys = mutableSetOf<KeypadKey>()
 
-    /**
-     * The number to recall when the call button is pressed on an empty field, or null when the
-     * call log holds none or cannot be read.
-     */
     private var lastDialedNumber: String? = null
 
-    /**
-     * The dial intent still being read, if any. Cancelled by a newer intent or a clear, either of
-     * which would otherwise be overwritten when it lands.
-     */
+    /** Cancelled by a newer intent or a clear, which a late result would otherwise overwrite. */
     private var fillJob: Job? = null
 
     /**
-     * Whether the field holds a number another app supplied, until the user empties it.
-     *
-     * Special codes are only run for what the user types. Otherwise any app could send a `tel:`
-     * link that reads out the IMEI or runs an MMI code the moment the keypad opens.
-     *
-     * Kept in [savedStateHandle] with the number, as DialpadFragment kept it in its saved state:
-     * a number restored after the process was killed must stay unable to run a code.
+     * Whether another app supplied the number. Special codes only run for typed input, or any app
+     * could send a `tel:` link that runs an MMI code; saved so a restored number stays inert.
      */
     private var isFilledByIntent: Boolean
         get() = savedStateHandle[KEY_FILLED_BY_INTENT] ?: false
@@ -99,31 +80,17 @@ internal class KeypadViewModel @Inject constructor(
             savedStateHandle[KEY_FILLED_BY_INTENT] = value
         }
 
-    /** Buzzes along with the pseudo-emergency pulse, from when the number is spelled until it isn't. */
     private var pseudoEmergencyPulses: Job? = null
 
-    /** Re-read by [refreshEmergencyCallWarning] rather than queried while mapping state. */
     private val isEmergencyCallWarningActive = MutableStateFlow(false)
 
-    /** Re-read when the keypad starts, as the accounts behind it can change while it is away. */
     private val isCallWithNoteAvailable = MutableStateFlow(false)
 
-    /**
-     * The error dialog on screen, if any. Saved with the number, as the legacy dialog fragment was
-     * restored by its fragment manager.
-     */
     private val error = MutableStateFlow(
         savedStateHandle.get<String>(KEY_ERROR)?.let(KeypadError::valueOf),
     )
 
-    /**
-     * Derived from its inputs rather than pushed by each action, so a new action cannot forget to
-     * republish.
-     *
-     * Eagerly, not `WhileSubscribed`: that exists to release expensive upstreams such as database
-     * cursors, and this one is a cheap combine. Staying active also keeps `value` correct for
-     * readers that never collect.
-     */
+    // Eagerly: the upstream is cheap, and the host reads `value` without collecting.
     override val uiState: StateFlow<KeypadUiState> = combine(
         digits.value,
         isEmergencyCallWarningActive,
@@ -137,7 +104,6 @@ internal class KeypadViewModel @Inject constructor(
             selectionEnd = value.selectionEnd,
             isDeleteEnabled = text.isNotEmpty(),
             isOverflowVisible = text.isNotEmpty(),
-            // The hint renders inside the empty digits field, so it has nowhere else to go.
             showsEmergencyCallWarning = text.isEmpty() && warningActive,
             isPseudoEmergencyNumber = PseudoEmergency.matches(text),
             isCallWithNoteAvailable = callWithNoteAvailable,
@@ -150,16 +116,13 @@ internal class KeypadViewModel @Inject constructor(
             initialValue = KeypadUiState(),
         )
 
-    // Buffered so that emitting never suspends the coroutine that does it. Nothing replays:
-    // an effect is acted on once, and re-delivering one after a configuration change would
-    // place a second call.
+    // No replay: re-delivering a PlaceCall after rotation would place a second call.
     private val _effects = MutableSharedFlow<KeypadScreenEffect>(extraBufferCapacity = 1)
     override val effects: Flow<KeypadScreenEffect> = _effects.asSharedFlow()
 
     init {
         restoreDigits()
 
-        // What the legacy EditText saved with the activity: the number and where its cursor was.
         digits.value
             .onEach { value ->
                 savedStateHandle[KEY_DIGITS] = value.text
@@ -168,15 +131,11 @@ internal class KeypadViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
-        // The keypad accepts input before this arrives; formatting simply starts applying once it
-        // does, which is what the fragment did too.
         viewModelScope.launch {
             phoneNumberFormatting.createWatcher()?.let(digits::addFormattingWatcher)
         }
 
-        // Re-read whenever the hint could become visible rather than caching it once: carrier
-        // config, service state and permissions all change outside this screen. Mirrors the
-        // fragment, which called updateDialpadHint from onTextChanged whenever emptiness flipped.
+        // Re-read whenever the hint could appear: carrier config and service state change elsewhere.
         digits.text
             .map { text -> text.isEmpty() }
             .distinctUntilChanged()
@@ -184,8 +143,6 @@ internal class KeypadViewModel @Inject constructor(
             .onEach { refreshEmergencyCallWarning() }
             .launchIn(viewModelScope)
 
-        // The fragment checked every change of text, which is how it caught a code the moment its
-        // last character was typed.
         digits.text
             .onEach { text ->
                 when {
@@ -206,11 +163,8 @@ internal class KeypadViewModel @Inject constructor(
 
     override fun onHostStarted() {
         tonePlayer.acquire()
-        // Airplane mode, permissions and service state can all have changed while the keypad was
-        // away, and the digits are unchanged, so nothing else would trigger a re-read.
+        // Service state, SIMs and permissions may have changed while the keypad was away.
         refreshEmergencyCallWarning()
-        // DialpadFragment re-checked this each time its menu opened; the start of each visit is as
-        // close as the view model gets, and it catches the same SIM or carrier changes.
         isCallWithNoteAvailable.value = callWithNoteAvailability.isAvailable()
         viewModelScope.launch { lastDialedNumber = lastOutgoingCall() }
     }
@@ -234,7 +188,7 @@ internal class KeypadViewModel @Inject constructor(
         fillJob?.cancel()
         fillJob = viewModelScope.launch {
             dialIntentNumber(intent)?.let { number ->
-                // Set before the text changes, so the change is never taken for typing.
+                // Before the text changes, so the change is never taken for typing.
                 isFilledByIntent = true
                 showNumber(number)
             }
@@ -279,9 +233,7 @@ internal class KeypadViewModel @Inject constructor(
     }
 
     private fun onVoicemailKeyLongPressed() {
-        // Anything else in the field means the user is dialing a number that starts with 1, not
-        // reaching for voicemail. "1" and "11" are here because a press has usually already typed
-        // one, and touch exploration types two.
+        // The press itself has usually typed a 1, and touch exploration types two.
         if (digits.text.value !in VOICEMAIL_LONG_PRESS_ALLOWED) {
             return
         }
@@ -298,8 +250,7 @@ internal class KeypadViewModel @Inject constructor(
     }
 
     private fun onPlusKeyLongPressed() {
-        // Only undo the typed zero when the key is genuinely held. An accessibility service can
-        // deliver a long press without a preceding press, and there is then nothing to remove.
+        // An accessibility long press arrives without a press, so there is no typed zero to undo.
         if (KeypadKey.ZERO in pressedKeys) {
             digits.removePreviousDigitIfPossible('0')
             digits.removePreviousDigitIfPossible('0')
@@ -309,14 +260,6 @@ internal class KeypadViewModel @Inject constructor(
         pressedKeys -= KeypadKey.ZERO
     }
 
-    /**
-     * The call button.
-     *
-     * An empty field recalls the last dialed number instead of dialing, so that the button is never
-     * simply inert. The fragment had a further branch here that sent a CDMA "empty flash" while a
-     * call was up; it was already unreachable, because it required the host's
-     * `shouldShowDialpadChooser`, which the only live host returns false from.
-     */
     private fun onCallClicked() {
         val number = digits.text.value
         when {
@@ -340,11 +283,10 @@ internal class KeypadViewModel @Inject constructor(
 
     private fun showNumber(number: String) {
         digits.setText(number)
-        // Past the end of the *formatted* text, which can be longer than what was set.
+        // The formatted text can be longer than what was set.
         digits.setSelection(digits.length)
     }
 
-    /** A buzz at every repeat of the call button's pulse, timed as `PseudoEmergencyAnimator` did. */
     private fun startPseudoEmergencyPulses() {
         pseudoEmergencyPulses = viewModelScope.launch {
             repeat(PseudoEmergency.PULSES - 1) {
@@ -359,8 +301,7 @@ internal class KeypadViewModel @Inject constructor(
     private fun stopPseudoEmergencyPulses() {
         val pulses = pseudoEmergencyPulses ?: return
         pseudoEmergencyPulses = null
-        // Cut short, the animator still ran its end callback, and with it the last buzz. Once the
-        // pulse has finished, that buzz is already on its way and must not be doubled.
+        // A pulse cut short still ends with the final buzz; a finished one has already sent it.
         if (pulses.isActive) {
             pulses.cancel()
             buzzOnceMore()
@@ -374,11 +315,7 @@ internal class KeypadViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Puts back the number the process last saved, before anything watches the digits: the
-     * intent flag comes back with it, so a restored number from another app is never taken for
-     * typing.
-     */
+    // Runs before anything watches the digits, so a restored number is never taken for typing.
     private fun restoreDigits() {
         val text = savedStateHandle.get<String>(KEY_DIGITS)
         if (text.isNullOrEmpty()) {

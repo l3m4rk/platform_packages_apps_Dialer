@@ -5,12 +5,7 @@ import com.android.dialer.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-/**
- * Whether a number is blocked from being dialed by hand.
- *
- * Driven by `config_prohibited_phone_number_regexp`, which is empty in this build and overlaid by
- * some carriers and test equipment. An empty rule prohibits nothing.
- */
+/** `config_prohibited_phone_number_regexp`, empty here and overlaid by some carriers. */
 internal fun interface CheckIfNumberIsProhibited {
     operator fun invoke(number: String): Boolean
 }

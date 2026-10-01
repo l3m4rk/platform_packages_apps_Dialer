@@ -6,12 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Collects one-shot [events] for as long as this composition is alive.
- *
- * [onEvent] is read through [rememberUpdatedState], so a recomposition that passes a new lambda does
- * not restart collection and drop an event in the gap.
- */
 @Composable
 internal fun <T> CollectEvents(
     events: Flow<T>,

@@ -28,16 +28,11 @@ import com.android.dialer.keypad.model.KeypadKey.THREE
 import com.android.dialer.keypad.model.KeypadKey.TWO
 import com.android.dialer.keypad.model.KeypadKey.ZERO
 
-/** How far each key starts from its place. */
 internal val KEY_ENTRANCE_DISTANCE = 100.dp
 
 /**
- * Plays the keys' entrance: each key slides into place from [KEY_ENTRANCE_DISTANCE] away, one
- * after another. Port of `DialpadView.animateShow`.
- *
- * Hoisted like a scroll state, so that the fragment can [play] it when the host shows the keypad.
- * Only plays requested after a key was composed move it; a composition recreated later, say on
- * rotation, does not replay an old entrance.
+ * The keys' staggered entrance, hoisted so the fragment can [play] it when the keypad is shown. A
+ * composition recreated later, as on rotation, does not replay an old entrance.
  */
 @Stable
 internal class KeypadEntranceState {
@@ -53,15 +48,11 @@ internal class KeypadEntranceState {
 @Composable
 internal fun rememberKeypadEntranceState(): KeypadEntranceState = remember { KeypadEntranceState() }
 
-/** The three variants the legacy keypad had, each with its own order and direction. */
 internal enum class KeyEntranceLayout {
-    /** Keys rise from below, row by row. */
     PORTRAIT,
 
-    /** Keys come in from the right, the left column first. */
     LANDSCAPE_LTR,
 
-    /** Keys come in from the left, the right column first. */
     LANDSCAPE_RTL,
 }
 
@@ -70,10 +61,7 @@ internal data class KeyEntranceTiming(
     val durationMs: Int,
 )
 
-/**
- * When [key] starts moving and for how long. The legacy tables, in 33 ms frames, scaled by the
- * same 0.66 and 0.8 and truncated the same way.
- */
+// The legacy timing tables, in 33 ms frames, scaled by 0.66 and 0.8 and truncated as before.
 internal fun keyEntranceTiming(key: KeypadKey, layout: KeyEntranceLayout): KeyEntranceTiming {
     val delayFrames = DELAY_FRAMES.getValue(layout).getValue(key)
     val durationFrames = DURATION_FRAMES.getValue(layout).getValue(key)
@@ -86,17 +74,12 @@ internal fun keyEntranceTiming(key: KeypadKey, layout: KeyEntranceLayout): KeyEn
 @Composable
 internal fun keyEntranceLayout(): KeyEntranceLayout = when {
     !isLandscape() -> KeyEntranceLayout.PORTRAIT
-    // The locale, not LocalLayoutDirection: the keys themselves are pinned left-to-right, but the
-    // legacy keypad took the entrance's side from the language, as this does.
+    // The locale, not LocalLayoutDirection, which the keys pin to left-to-right.
     localeLayoutDirection() == LayoutDirection.Rtl -> KeyEntranceLayout.LANDSCAPE_RTL
     else -> KeyEntranceLayout.LANDSCAPE_LTR
 }
 
-/**
- * [key]'s current displacement in pixels, along Y in portrait and X in landscape. Zero at rest.
- * Held at the full distance through the key's delay, as the legacy keypad set the translation
- * before starting each key's delayed animation.
- */
+/** Pixels along Y in portrait and X in landscape, held at full distance through the key's delay. */
 @Composable
 internal fun keyEntranceOffset(
     key: KeypadKey,
@@ -118,7 +101,6 @@ internal fun keyEntranceOffset(
             animationSpec = tween(
                 durationMillis = timing.durationMs,
                 delayMillis = timing.delayMs,
-                // PathInterpolator(0.4, 0, 0.2, 1), the legacy EASE_OUT_EASE_IN.
                 easing = FastOutSlowInEasing,
             ),
         )

@@ -11,10 +11,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-/**
- * Builds the as-you-type formatter for the digits field, or returns `null` where formatting is
- * turned off for the device.
- */
 internal interface PhoneNumberFormatting {
     suspend fun createWatcher(): TextWatcher?
 }
@@ -26,9 +22,7 @@ internal class SystemPhoneNumberFormatting @Inject constructor(
 
     override suspend fun createWatcher(): TextWatcher? = when {
         MotorolaUtils.shouldDisablePhoneNumberFormatting(context) -> null
-        // Off the main thread deliberately: the watcher builds a libphonenumber AsYouTypeFormatter,
-        // which cannot be initialized on it. The fragment used a background executor for the same
-        // reason, and attached the watcher only once it was ready.
+        // libphonenumber's AsYouTypeFormatter cannot be initialized on the main thread.
         else -> withContext(defaultDispatcher) {
             DialerPhoneNumberFormattingTextWatcher(GeoUtil.getCurrentCountryIso(context))
         }

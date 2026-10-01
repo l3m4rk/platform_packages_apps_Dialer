@@ -21,17 +21,10 @@ private val pulseInterpolator = AccelerateDecelerateInterpolator()
 
 private val pulseColors = ArgbEvaluator()
 
-// ValueAnimator's default, which PseudoEmergencyAnimator never overrode.
+// ValueAnimator's default interpolator.
 private val PulseEasing = Easing(pulseInterpolator::getInterpolation)
 
-/**
- * The call button's container color: the usual green, or, for a moment after the pseudo-emergency
- * number is spelled, a pulse between blue and red.
- *
- * The pulse runs once, then the green comes back even though the number stays in the field. It
- * stops at once if the number is edited away. Both match `PseudoEmergencyAnimator`, as do the pure
- * blue and red and the platform's color interpolation between them.
- */
+/** Green, or a single blue-red pulse once the pseudo-emergency number is spelled. */
 @Composable
 internal fun callButtonContainerColor(isPseudoEmergencyNumber: Boolean): Color {
     val pulse = remember { Animatable(0f) }
@@ -44,8 +37,7 @@ internal fun callButtonContainerColor(isPseudoEmergencyNumber: Boolean): Color {
         isPulsing = true
         try {
             pulse.snapTo(0f)
-            // One reversing animation rather than a leg at a time, so no frame is lost between
-            // legs; ValueAnimator's REVERSE repeat was seamless too. An odd count ends on red.
+            // One reversing animation, so no frame is lost between legs.
             pulse.animateTo(
                 targetValue = 1f,
                 animationSpec = repeatable(

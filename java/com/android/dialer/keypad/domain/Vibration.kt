@@ -7,7 +7,6 @@ import android.os.VibratorManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-/** A plain one-shot vibration, for feedback that is not tied to a touch. */
 internal interface Vibration {
     fun vibrate(durationMs: Long)
 }

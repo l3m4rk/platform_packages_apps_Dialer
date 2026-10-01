@@ -38,19 +38,14 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.android.dialer.keypad.model.KeypadAction
 import com.android.dialer.keypad.model.KeypadUiState
 
-/** The minimum touch target Material and the accessibility guidelines both ask for. */
-// Past the 48dp minimum: after the keys these are the most-hit controls. The legacy backspace was
-// 56dp wide too, its 24dp icon padded by 16dp either side; the overflow now matches it.
+// Past the 48dp minimum: after the keys these are the most-hit controls.
 private val TOUCH_TARGET = 56.dp
 private val ICON_SIZE = 24.dp
 private const val DISABLED_CONTENT_ALPHA = 0.38f
 
 /**
- * Overflow, the number, then backspace — the order Google's Phone app uses.
- *
- * Backspace is always shown, dimmed while there is nothing to delete, as in Google's Phone app and
- * the View keypad. Overflow is hidden with alpha rather than removed, so the number stays centered
- * and nothing reflows as the first character is typed; the View keypad used `INVISIBLE` there.
+ * Overflow, the number, then backspace, as in Google's Phone app. Overflow is hidden with alpha
+ * rather than removed, so the number does not reflow as the first character is typed.
  */
 @Composable
 internal fun KeypadDigitsRow(
@@ -108,11 +103,7 @@ internal fun KeypadDigitsRow(
     }
 }
 
-/**
- * Backspace. A tap deletes one character, a long press clears the field.
- *
- * A plain `IconButton` has no long press, hence the hand-rolled clickable.
- */
+// An IconButton has no long press, which clears the field.
 @Composable
 private fun DeleteButton(
     uiState: KeypadUiState,
@@ -143,7 +134,6 @@ private fun DeleteButton(
             tint = if (uiState.isDeleteEnabled) {
                 MaterialTheme.colorScheme.onSurfaceVariant
             } else {
-                // Material's disabled content color, as a disabled IconButton draws it.
                 MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
             },
             modifier = Modifier.size(ICON_SIZE),
@@ -151,7 +141,6 @@ private fun DeleteButton(
     }
 }
 
-/** The overflow menu, whose every item acts on an existing number. */
 @Composable
 private fun OverflowButton(
     uiState: KeypadUiState,
@@ -159,7 +148,6 @@ private fun OverflowButton(
     onAction: (KeypadAction) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    // The legacy PopupMenu was dismissed in onPause, so it was never found open on return.
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
         expanded = false
     }
@@ -180,8 +168,7 @@ private fun OverflowButton(
             )
         }
 
-        // Out of the keypad's left-to-right pin: the menu is text, and follows the language, as the
-        // legacy PopupMenu did.
+        // Out of the pin: the menu is text, and follows the language.
         CompositionLocalProvider(LocalLayoutDirection provides localeLayoutDirection()) {
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 DropdownMenuItem(

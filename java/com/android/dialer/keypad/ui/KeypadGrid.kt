@@ -16,7 +16,6 @@ import com.android.dialer.keypad.model.KeypadKey
 
 private val KEY_SPACING = 8.dp
 
-/** The twelve keys, laid out as a phone always has laid them out. */
 private val KEY_ROWS = listOf(
     listOf(KeypadKey.ONE, KeypadKey.TWO, KeypadKey.THREE),
     listOf(KeypadKey.FOUR, KeypadKey.FIVE, KeypadKey.SIX),
@@ -39,9 +38,8 @@ internal fun KeypadGrid(
     ) {
         KEY_ROWS.forEach { row ->
             Row(
-                // Compact rows split the grid's height evenly. Otherwise a row is as tall as its
-                // tallest key and the others stretch to match, so a second alphabet under 2 does
-                // not leave 1 shorter beside it; DialpadView equalized its keys the same way.
+                // A row is as tall as its tallest key, so a second alphabet under 2 does not leave
+                // 1 shorter beside it.
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
@@ -55,7 +53,6 @@ internal fun KeypadGrid(
                         key = key,
                         onPress = { onAction(KeypadAction.KeyPressed(key)) },
                         onRelease = { onAction(KeypadAction.KeyReleased(key)) },
-                        // Drawn displaced, laid out in place, as the View translation was.
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -78,7 +75,6 @@ internal fun KeypadGrid(
     }
 }
 
-/** Only 1 and 0 have a long press, and each announces what it will do. */
 private fun longPressLabel(key: KeypadKey, strings: KeypadStrings): String? = when (key) {
     KeypadKey.ONE -> strings.voicemailKeyAction
     KeypadKey.ZERO -> strings.plusKeyAction

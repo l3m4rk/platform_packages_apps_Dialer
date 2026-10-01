@@ -40,59 +40,42 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * Hosts the Compose keypad in place of `DialpadFragment`.
+ * Hosts the Compose keypad for `MainSearchController`.
  *
- * An AndroidX [Fragment], so it lives in the activity's support `FragmentManager` while the search
- * fragment beside it stays in the framework one. The two managers coexist; the host only has to
- * commit to each separately.
- *
- * The public surface mirrors the parts of `DialpadFragment` that `MainSearchController` actually
- * calls, and [HostListener] and [OnQueryChangedListener] are that fragment's host callbacks, moved
- * here with the same methods, less `getLastOutgoingCall`: the view model reads the call log itself.
- *
- * The view model is the activity's rather than this fragment's. That matches how the host uses the
- * fragment: it hides it rather than removing it, specifically so that the number survives the
- * keypad being dismissed.
+ * The view model is the activity's: the host hides this fragment rather than removing it, so the
+ * number survives the keypad being dismissed.
  */
 class KeypadFragment : Fragment() {
 
-    /** What the keypad tells its host. Was `DialpadFragment.DialpadListener`. */
     interface HostListener {
         fun onDialpadShown()
 
         fun onCallPlacedFromDialpad()
     }
 
-    /** Every change of number, for the host to search on. Was `DialpadFragment`'s too. */
     fun interface OnQueryChangedListener {
         fun onDialpadQueryChanged(query: String)
     }
 
-    // The activity is a Hilt entry point, so its default factory builds the Hilt view model.
     private val viewModel: KeypadViewModel by lazy {
         ViewModelProvider(requireActivity())[KeypadViewModel::class.java]
     }
 
-    /** Whether the keypad has slid onto the screen. Only the host's slide calls change it. */
     var isDialpadSlideUp: Boolean = false
         private set
 
-    /** Whether the next show should animate. Set by the host just before it hides the keypad. */
     var animate: Boolean = false
 
-    /** Whether the keypad was opened by an incoming `ACTION_DIAL` rather than by the user. */
     var startedFromNewIntent: Boolean = false
 
-    /** The number as typed, formatted. Read by the host to carry it into the search bar. */
     val query: String
         get() = viewModel.uiState.value.digits
 
     private var firstLaunch = false
 
-    /** Played from [onHiddenChanged]; outlives the view, which a hide keeps anyway. */
     private val keyEntrance = KeypadEntranceState()
 
-    /** Bumped each time the keypad is shown, so that the number takes focus as the legacy one did. */
+    /** Bumped on each show, so the number takes focus for hardware keyboards. */
     private var shows by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,7 +89,6 @@ class KeypadFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View = ComposeView(requireContext()).apply {
-        // Dispose with the fragment's view rather than on detach, which a hide does not cause.
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             DialerTheme {
@@ -131,8 +113,7 @@ class KeypadFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         configureFromIntent(requireActivity().intent)
-        // The framework does not call onHiddenChanged on the first attach, so do it here, exactly
-        // as DialpadFragment did; without it the host never slides the keypad up.
+        // The framework skips onHiddenChanged on the first attach, and the host slides up from it.
         if (firstLaunch) {
             onHiddenChanged(false)
         }
@@ -140,18 +121,13 @@ class KeypadFragment : Fragment() {
     }
 
     /**
-     * Port of `DialpadFragment.configureScreenFromIntent`, less its dialpad chooser, which no live
-     * host shows.
-     *
-     * Only an intent that is new to the keypad fills it: the activity keeps its intent across
-     * resumes, and refilling from it would overwrite what the user typed since.
+     * Fills the keypad from an intent new to it only: the activity keeps its intent across resumes,
+     * and refilling would overwrite what the user typed since.
      */
     private fun configureFromIntent(intent: Intent?) {
         if (intent == null) {
             return
         }
-        // Add call brings up an empty keypad; nothing to fill. The flag is left set, as
-        // DialpadFragment left it.
         if (isAddCallMode(intent)) {
             startedFromNewIntent = true
             return
@@ -165,8 +141,7 @@ class KeypadFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         viewModel.onHostPaused()
-        // Cancels a SIM contact lookup still in flight, so it does not try to dismiss its progress
-        // dialog after the activity has gone. DialpadFragment did the same.
+        // Cancels a SIM contact lookup, whose progress dialog must not outlive the activity.
         SpecialCharSequenceMgr.cleanup()
     }
 
@@ -183,8 +158,6 @@ class KeypadFragment : Fragment() {
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
         if (activity != null && view != null && !hidden) {
-            // animate is what the host last hid the keypad with, so an animated hide is followed by
-            // an animated show; DialpadFragment keyed its animateShow the same way.
             if (animate) {
                 keyEntrance.play()
             }
@@ -202,17 +175,13 @@ class KeypadFragment : Fragment() {
      * after a call, so there is never a visible deletion to announce.
      */
     fun clearDialpad() {
-        // The host may call this in the gap between creating the fragment and its asynchronous
-        // commit attaching it. Unattached there is no view model to reach and nothing has ever been
-        // shown, so there is nothing to clear. DialpadFragment likewise skipped clearing before its
-        // view existed.
+        // Before the commit attaches it, nothing has been shown and there is no view model to reach.
         if (activity == null) {
             return
         }
         viewModel.clearDigits()
     }
 
-    /** Slides the keypad onto the screen. Port of `DialpadFragment.slideUp`. */
     fun slideUp(animated: Boolean) {
         Assert.checkArgument(!isDialpadSlideUp)
         isDialpadSlideUp = true
@@ -224,10 +193,7 @@ class KeypadFragment : Fragment() {
         startSlide(animation = animation, animated = animated, listener = null, easeIn = true)
     }
 
-    /**
-     * Slides the keypad off the screen. The host hides this fragment from [listener]'s
-     * `onAnimationEnd`. Port of `DialpadFragment.slideDown`.
-     */
+    /** The host hides this fragment from [listener]'s `onAnimationEnd`. */
     fun slideDown(animated: Boolean, listener: Animation.AnimationListener?) {
         Assert.checkArgument(isDialpadSlideUp)
         isDialpadSlideUp = false
@@ -282,16 +248,12 @@ class KeypadFragment : Fragment() {
     }
 
     private fun runSpecialCode(input: String) {
-        // The lookup can outlive this fragment's view, so hold the activity-scoped view model
-        // rather than the fragment.
         val handled = try {
             SpecialCharSequenceMgr.handleChars(requireActivity(), input) { number ->
                 viewModel.insertSimContactNumber(number)
             }
         } catch (e: SecurityException) {
-            // Some codes need permissions only a privileged install holds. *#06# is the known one:
-            // getDeviceId needs READ_PRIVILEGED_PHONE_STATE since API 29, and throws before any
-            // dialog is shown. Unhandled, it crashed the dialer; now the code stays in the field.
+            // *#06# needs READ_PRIVILEGED_PHONE_STATE, which only a system install holds.
             LogUtil.w(TAG, "Cannot run the special code: $e")
             false
         }
@@ -310,13 +272,9 @@ class KeypadFragment : Fragment() {
     companion object {
         private const val TAG = "KeypadFragment"
 
-        // Set by Telecom when the in-call screen opens the dialer to add a call.
         private const val EXTRA_ADD_CALL_MODE = "add_call_mode"
 
-        /**
-         * Whether [intent] is the in-call screen's "add call", which opens an empty keypad. Was
-         * `DialpadFragment.isAddCallMode`.
-         */
+        /** Whether [intent] is the in-call screen's "add call", which opens an empty keypad. */
         @JvmStatic
         fun isAddCallMode(intent: Intent?): Boolean = when (intent?.action) {
             Intent.ACTION_DIAL, Intent.ACTION_VIEW ->
@@ -328,10 +286,6 @@ class KeypadFragment : Fragment() {
     }
 }
 
-/**
- * Binds the screen to its model: state in, actions out, effects handed to the fragment, and every
- * change of number reported to the host so it can search on it.
- */
 @Composable
 private fun KeypadHost(
     screenModel: KeypadScreenModel,
@@ -344,8 +298,7 @@ private fun KeypadHost(
 
     CollectEvents(events = screenModel.effects, onEvent = onEffect)
 
-    // Remembered so recomposition hands CollectEvents the same flow, which it would otherwise
-    // restart collecting.
+    // Remembered: a new flow on each recomposition would restart the collection.
     val queries = remember(screenModel) {
         screenModel.uiState
             .map { state -> state.digits }

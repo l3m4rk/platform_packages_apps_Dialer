@@ -5,15 +5,8 @@ import android.view.KeyEvent
 import com.android.dialer.dialpadview.DialpadCharMappings
 
 /**
- * The twelve keys of the dialpad.
- *
- * Declaration order is load-bearing: it matches the array order of
- * [DialpadCharMappings.getDefaultKeyToCharsMap], where the index is the digit itself and indices
- * 10 and 11 are star and pound. `KeypadKeyTest` pins that correspondence.
- *
- * [tone] is the DTMF tone the key plays for as long as it is held, and [keyCode] is the key event
- * the View dialpad synthesised into its `EditText`. Both are kept so the Compose keypad produces
- * byte-identical dialling behaviour to the fragment it replaces.
+ * Declaration order is load-bearing: it matches [DialpadCharMappings.getDefaultKeyToCharsMap],
+ * where the index is the digit and 10 and 11 are star and pound.
  */
 internal enum class KeypadKey(
     val char: Char,
@@ -34,12 +27,7 @@ internal enum class KeypadKey(
     POUND(char = '#', keyCode = KeyEvent.KEYCODE_POUND, tone = ToneGenerator.TONE_DTMF_P),
     ;
 
-    /**
-     * The Latin letters printed under the key's glyph, or an empty string for 1, star and pound.
-     *
-     * Always the Latin mapping, matching `DialpadView.setupKeypad`, which reads the primary letters
-     * from `getDefaultKeyToCharsMap()` and never localises them. Key 0's letters are `"+"`.
-     */
+    /** Always Latin; a second alphabet is added by the UI. */
     val letters: String
         get() = DialpadCharMappings.getDefaultKeyToCharsMap()[ordinal]
 }

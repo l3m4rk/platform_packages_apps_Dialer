@@ -9,22 +9,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 /**
- * Plays DTMF tones through a [ToneGenerator] on [AudioManager.STREAM_DTMF].
+ * Reads the dialing-tone setting and ringer mode on every [play], as either can change without
+ * leaving the keypad.
  *
- * Port of `DialpadFragment`'s tone handling, with two deliberate differences.
- *
- * The fragment cached the DTMF setting in `onResume`; this reads it, and the ringer mode, afresh on
- * every [play]. The fragment already re-read the ringer mode every time, noting that silent mode
- * can be toggled without leaving the activity, and the same is true of the setting.
- *
- * [stop] is unguarded. The fragment checked the cached setting there too, but that check could
- * never matter: with the flag false no tone had been started, so there was nothing to stop. Read
- * live the same check becomes a way to strand a tone — a key press starts one of
- * [TONE_LENGTH_INFINITE], so if the setting flips off before the release the tone would play
- * forever. Stopping is a safety operation and must not depend on anything.
- *
- * A generator that fails to construct is tolerated rather than fatal: these tones are local
- * feedback, less important than the call itself.
+ * [stop] is deliberately unguarded: a held key's tone is [TONE_LENGTH_INFINITE], and a stop that
+ * checked the setting would strand it if the setting changed mid-press.
  */
 internal class SystemDtmfTonePlayer @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -98,14 +87,12 @@ internal class SystemDtmfTonePlayer @Inject constructor(
     }
 }
 
-/** The real factory: a generator on the DTMF stream at [TONE_RELATIVE_VOLUME]. */
 internal class SystemToneGeneratorFactory @Inject constructor() : ToneGeneratorFactory {
 
     override fun create(): ToneGenerator =
         ToneGenerator(AudioManager.STREAM_DTMF, TONE_RELATIVE_VOLUME)
 
     private companion object {
-        /** The DTMF tone volume, relative to other sounds in the stream. */
         private const val TONE_RELATIVE_VOLUME = 80
     }
 }

@@ -5,7 +5,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
-/** Wraps a preview in [DialerTheme] on a themed background, so dark previews are legible. */
 @Composable
 internal fun DialerPreviewTheme(
     modifier: Modifier = Modifier,

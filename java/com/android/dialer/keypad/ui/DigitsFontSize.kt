@@ -5,16 +5,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 
-/** How small the number may get; past it, the field scrolls to the cursor instead. */
 internal val DIGITS_MIN_FONT_SIZE = 24.sp
 
-/**
- * The font size that fits [text] into [maxWidthPx] on one line: [style]'s own size when it already
- * fits, otherwise scaled down in proportion, but never below [minFontSize].
- *
- * Port of `ViewUtil.resizeText`, which the legacy `ResizingTextEditText` ran on every change of
- * text or width: the same proportional rule and the same 24sp floor, rather than stepping down.
- */
+/** Scales down in proportion to fit one line, never below [minFontSize]. */
 internal fun digitsFontSize(
     text: String,
     style: TextStyle,

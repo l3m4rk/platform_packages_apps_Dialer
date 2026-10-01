@@ -10,10 +10,6 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.android.dialer.keypad.model.KeypadError
 import com.android.dialer.theme.compose.DialerPreviewTheme
 
-/**
- * The keypad's error, a message and OK, as `DialpadFragment.ErrorDialogFragment` showed it; a
- * Material 3 dialog now, drawn from state rather than shown by the fragment.
- */
 @Composable
 internal fun KeypadErrorDialog(
     error: KeypadError,

@@ -36,7 +36,6 @@ private fun KeypadScreenEmergencyWarningPreview() {
     }
 }
 
-/** The narrowest phone still supported, where the key letters are most at risk of clipping. */
 @Preview(widthDp = 320)
 @Composable
 private fun KeypadScreenCompactWidthPreview() {
@@ -51,7 +50,6 @@ private fun KeypadScreenCompactWidthPreview() {
     }
 }
 
-/** Largest accessibility font scale, which the View keypad did not survive on the key glyphs. */
 @Preview(fontScale = 2f)
 @Composable
 private fun KeypadScreenLargeFontPreview() {
@@ -60,7 +58,6 @@ private fun KeypadScreenLargeFontPreview() {
     }
 }
 
-/** Russian: the Cyrillic letters under the Latin ones, as the legacy keypad showed them. */
 @Preview(locale = "ru")
 @Composable
 private fun KeypadScreenSecondAlphabetPreview() {
@@ -73,7 +70,6 @@ private fun KeypadScreenSecondAlphabetPreview() {
     }
 }
 
-/** Persian: Persian digits on the keys. */
 @Preview(locale = "fa")
 @Composable
 private fun KeypadScreenPersianDigitsPreview() {
@@ -86,7 +82,6 @@ private fun KeypadScreenPersianDigitsPreview() {
     }
 }
 
-/** A landscape phone: the keypad beside the search results, its keys compact. */
 @Preview(device = "spec:width=891dp,height=411dp,orientation=landscape", showBackground = true)
 @Composable
 private fun KeypadScreenLandscapePreview() {
@@ -115,7 +110,6 @@ private fun PreviewKeypadScreen(uiState: KeypadUiState) {
     )
 }
 
-/** Fixed text for previews, which render without the app's string resources wired in. */
 internal fun previewKeypadStrings() = KeypadStrings(
     voicemailKeyAction = "call voicemail",
     plusKeyAction = "dial plus",

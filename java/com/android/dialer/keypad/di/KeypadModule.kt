@@ -26,12 +26,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
 /**
- * Bindings for the keypad's domain layer.
- *
- * Only adapters that need nothing more than the application context live here. Anything that has
- * to touch an `Activity` — placing a call through `PreCall`, `SpecialCharSequenceMgr`, the call
- * subject dialog — is reported by the view model as an effect and carried out by the keypad
- * fragment instead, so that no `Activity` is ever reachable from a `ViewModel`.
+ * Application-context bindings only. What needs an `Activity` (`PreCall`, `SpecialCharSequenceMgr`)
+ * is an effect carried out by the fragment, never a binding.
  */
 @Suppress("Unused")
 @Module

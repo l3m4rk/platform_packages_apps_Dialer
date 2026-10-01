@@ -35,23 +35,14 @@ import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.awaitCancellation
 
 /**
- * The number, as an editable field: the legacy digits were an `EditText`, and a tap placing the
- * cursor, long-press copy and paste, and typing on a hardware keyboard all came from that.
+ * The editable number. Edits come back through [value] after the filter and formatter have run.
  *
- * Every edit goes to the view model and comes back through [value] once the keypad's own filter
- * and formatter have run, so what is shown is always what will be dialed.
+ * Hardware keys go out as [onTyped] and [onDelete] commands rather than through the field's own
+ * editing: the field's copy of the text trails the formatted one by a frame, and two keys in one
+ * frame would undo the formatter's separators. Only paste, cut and cursor moves reach
+ * [onValueChange].
  *
- * Keys typed on a hardware keyboard do not go through the field's own editing: they come out as
- * [onTyped] and [onDelete], commands applied at the cursor, as the legacy field's key listener
- * applied them. The field would otherwise build each edit from its own copy of the text, which
- * only catches up with the formatted number a frame later; two keys inside one frame then undo the
- * formatter's separators, and the formatter stops for good. Only paste, cut and cursor moves reach
- * [onValueChange], and those never come faster than a frame.
- *
- * @param isCursorVisible the legacy keypad only showed the cursor after the field was touched,
- *   and hid it again when a key was typed at the end; the caller keeps that rule.
- * @param focusRequests take focus whenever this changes, as the legacy fragment did each time the
- *   keypad was shown, so that a hardware keyboard types without a tap first.
+ * @param focusRequests take focus whenever this changes, so a hardware keyboard types without a tap.
  */
 @Composable
 internal fun KeypadDigitsField(
@@ -87,7 +78,6 @@ internal fun KeypadDigitsField(
     val measurer = rememberTextMeasurer()
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        // A long number shrinks to fit before it scrolls, as ResizingTextEditText made it.
         val fontSize = digitsFontSize(
             text = value.text,
             style = style,
@@ -121,9 +111,7 @@ private fun DigitsTextField(
     onDelete: () -> Unit,
     onEnter: () -> Unit,
 ) {
-    // Never the soft keyboard: the keypad is the keyboard. DigitsEditText turned it off with
-    // setShowSoftInputOnFocus(false); refusing the input session does the same, while hardware
-    // keys, the cursor and the clipboard do not go through it.
+    // Never the soft keyboard: the keypad is the keyboard. Hardware keys and the clipboard still work.
     InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
         BasicTextField(
             value = value,
@@ -150,10 +138,7 @@ private fun DigitsTextField(
     }
 }
 
-/**
- * Turns a hardware key into a keypad command, or leaves it to the field: arrows, selection and
- * shortcuts such as Ctrl+V still work as in any text field.
- */
+// Arrows, selection and shortcuts such as Ctrl+V are left to the field.
 private fun handleHardwareKey(
     event: KeyEvent,
     onTyped: (Char) -> Unit,
@@ -163,7 +148,6 @@ private fun handleHardwareKey(
     val char = event.utf16CodePoint.toChar()
     val command: (() -> Unit)? = when {
         event.isCtrlPressed || event.isMetaPressed -> null
-        // Enter dials, as the legacy field's OnKeyListener made it.
         event.key == Key.Enter || event.key == Key.NumPadEnter -> onEnter
         event.key == Key.Backspace -> onDelete
         event.utf16CodePoint != 0 && !char.isISOControl() -> {
@@ -174,6 +158,6 @@ private fun handleHardwareKey(
     if (command != null && event.type == KeyEventType.KeyDown) {
         command()
     }
-    // Both edges of a handled key, so the field never sees the key up of a key it did not type.
+    // Both edges, so the field never sees the key up of a key it did not type.
     return command != null
 }

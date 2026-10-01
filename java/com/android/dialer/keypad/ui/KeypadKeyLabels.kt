@@ -11,14 +11,7 @@ import com.android.dialer.keypad.model.KeypadKey
 import java.text.NumberFormat
 import java.util.Locale
 
-/**
- * What each key shows that depends on the language: the digit's glyph, and a second alphabet's
- * letters under the Latin ones.
- *
- * Port of `DialpadView.setupKeypad`. Persian gets Persian digits; Bulgarian, Russian and Ukrainian
- * get their Cyrillic letters from `DialpadCharMappings`. Every other language shows plain digits
- * and the Latin letters alone, which is also what these defaults are.
- */
+/** Persian digits, and Cyrillic letters under the Latin ones for Bulgarian, Russian and Ukrainian. */
 @Immutable
 internal data class KeypadKeyLabels(
     private val digits: Map<KeypadKey, String> = emptyMap(),
@@ -27,17 +20,13 @@ internal data class KeypadKeyLabels(
 
     fun digit(key: KeypadKey): String = digits[key] ?: key.char.toString()
 
-    /** The second alphabet's letters for [key], or null where there are none. */
     fun secondaryLetters(key: KeypadKey): String? = secondaryLetters[key]
 
     companion object {
-        // DialpadView checked the ISO 639-2 code, so Persian only, not Arabic or Urdu.
+        // ISO 639-2, so Persian only, not Arabic or Urdu.
         private const val PERSIAN = "fas"
 
-        /**
-         * The labels for [locale], with [secondaryKeyToChars] in `DialpadCharMappings`' layout:
-         * twelve entries, 0 to 9, then `*`, then `#`.
-         */
+        /** [secondaryKeyToChars] is in `DialpadCharMappings`' layout: 0 to 9, `*`, `#`. */
         fun of(locale: Locale, secondaryKeyToChars: Array<String>?): KeypadKeyLabels {
             val format = NumberFormat.getInstance(locale).takeIf { locale.isO3Language == PERSIAN }
             val digits = format?.let {
@@ -68,7 +57,6 @@ internal data class KeypadKeyLabels(
     }
 }
 
-/** The labels for the current language, read again when the configuration changes. */
 @Composable
 internal fun keypadKeyLabels(): KeypadKeyLabels {
     val context = LocalContext.current

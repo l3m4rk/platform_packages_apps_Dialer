@@ -15,20 +15,11 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-/**
- * The number a dial intent asks the keypad to show, formatted for the field, or `null` when the
- * intent carries none.
- */
 internal interface DialIntentNumber {
     suspend operator fun invoke(intent: Intent): String?
 }
 
-/**
- * Port of `DialpadFragment.fillDigitsIfNecessary` and `getFormattedDigits`.
- *
- * Two kinds of intent carry a number: a `tel:` link, and the legacy Contacts API item types the
- * activity's manifest still accepts, whose number has to be read from the provider.
- */
+/** Reads a `tel:` link, or a legacy Contacts item the manifest still accepts. */
 internal class SystemDialIntentNumber @Inject constructor(
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -53,11 +44,7 @@ internal class SystemDialIntentNumber @Inject constructor(
         return format(dialString = converted, normalizedNumber = null)
     }
 
-    /**
-     * The URI comes from whichever app sent the intent, so it may point at a provider this app
-     * cannot read, or at nothing at all. The fragment let either throw and crash the dialer; now it
-     * simply carries no number.
-     */
+    // Another app's URI may point at a provider this app cannot read, or at nothing.
     private fun numberFromContact(uri: Uri): String? = try {
         context.contentResolver
             .query(uri, arrayOf(COLUMN_NUMBER, COLUMN_NUMBER_KEY), null, null, null)
@@ -76,7 +63,7 @@ internal class SystemDialIntentNumber @Inject constructor(
         null
     }
 
-    /** Formats the network portion of [dialString], keeping any pause or wait suffix as typed. */
+    // Keeps any pause or wait suffix as typed.
     private fun format(dialString: String?, normalizedNumber: String?): String {
         val number = PhoneNumberUtils.extractNetworkPortion(dialString)
         val postDial = PhoneNumberUtils.extractPostDialPortion(dialString).orEmpty()
@@ -94,8 +81,7 @@ internal class SystemDialIntentNumber @Inject constructor(
     private companion object {
         private const val TAG = "SystemDialIntentNumber"
 
-        // android.provider.Contacts, deprecated since API 5, is spelled out rather than imported.
-        // These are the two item types the activity's DIAL intent filter declares.
+        // The deprecated android.provider.Contacts types the DIAL intent filter declares.
         private val CONTACT_ITEM_TYPES = setOf(
             "vnd.android.cursor.item/person",
             "vnd.android.cursor.item/phone",

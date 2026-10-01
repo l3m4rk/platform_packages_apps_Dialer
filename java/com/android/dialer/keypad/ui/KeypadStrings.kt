@@ -6,13 +6,8 @@ import androidx.compose.ui.res.stringResource
 import com.android.dialer.R
 
 /**
- * The screen's localized text, passed in rather than resolved inside the composables.
- *
- * Unit tests run without an Android resource table — `isIncludeAndroidResources` is off, because
- * Robolectric rejects this module's `minSdkVersion`. A `stringResource` call inside the keypad
- * would therefore throw in every Robolectric test. Threading the strings through one boundary keeps
- * the composables renderable there while leaving the strings themselves in resources, where they
- * stay translatable. The real wiring is covered by an instrumented test instead.
+ * Passed in rather than resolved by the composables: unit tests run without app resources, where
+ * `stringResource` would throw.
  */
 @Immutable
 internal data class KeypadStrings(

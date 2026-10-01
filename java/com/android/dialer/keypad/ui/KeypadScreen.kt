@@ -48,19 +48,12 @@ private val SHEET_VERTICAL_PADDING = 12.dp
 private val SECTION_SPACING = 12.dp
 private val CALL_BUTTON_MIN_HEIGHT = 56.dp
 
-// Measured from Google's Phone app: a 56dp capsule about 100dp wide, the icon and label close.
+// Measured from Google's Phone app.
 private val CALL_BUTTON_HORIZONTAL_PADDING = 20.dp
 
 private val CALL_ICON_SIZE = 24.dp
 private val CALL_ICON_LABEL_SPACING = 12.dp
 
-/**
- * The keypad, with no state of its own, laid out after Google's Phone app.
- *
- * Everything it renders arrives in [uiState], every user gesture leaves through [onAction], and
- * every string arrives in [strings]. That keeps it drivable by a fake screen model in tests and by
- * fixed values in previews.
- */
 @Composable
 internal fun KeypadScreen(
     uiState: KeypadUiState,
@@ -76,8 +69,6 @@ internal fun KeypadScreen(
             .testTag(KEYPAD_SHEET_TEST_TAG)
             .fillMaxWidth()
             .then(if (isLandscape) Modifier.fillMaxHeight() else Modifier),
-        // Rounded on the side facing the search results: the top in portrait, the start beside
-        // them in landscape.
         shape = if (isLandscape) {
             RoundedCornerShape(topStart = SHEET_CORNER, bottomStart = SHEET_CORNER)
         } else {
@@ -86,9 +77,7 @@ internal fun KeypadScreen(
         color = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        // A keypad reads 1 2 3 in every language, and backspace stays on the right; the legacy
-        // dialpad_view was pinned layoutDirection="ltr" for the same reason. The surrounding sheet,
-        // its placement and its rounded side, still follow the language.
+        // A keypad reads 1 2 3 in every language; the sheet around it still follows the language.
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             KeypadContent(
                 uiState = uiState,
@@ -101,7 +90,6 @@ internal fun KeypadScreen(
         }
     }
 
-    // Outside the keypad's left-to-right pin: a dialog of text follows the language.
     uiState.error?.let { error ->
         KeypadErrorDialog(
             error = error,
@@ -120,8 +108,7 @@ private fun KeypadContent(
     isLandscape: Boolean,
     entranceState: KeypadEntranceState,
 ) {
-    // The legacy cursor rules: hidden until the number is touched, hidden again once it empties or
-    // a key is typed at its end, where there is no cursor position worth showing.
+    // The cursor shows once the number is touched, until it empties or a key is typed at its end.
     val digitsField = TextFieldValue(
         text = uiState.digits,
         selection = TextRange(uiState.selectionStart, uiState.selectionEnd),
@@ -162,15 +149,13 @@ private fun KeypadContent(
         KeypadGrid(
             strings = strings,
             onAction = onKeyAction,
-            // Landscape is short: the keys share what height is left rather than asking for
-            // their own, which is what pushed the call button off the screen.
+            // Landscape is short: the keys share what height is left, keeping the call button on screen.
             modifier = if (isLandscape) Modifier.weight(1f) else Modifier,
             isCompact = isLandscape,
             entranceState = entranceState,
         )
 
-        // Outside the pin, like the legacy call button, which sat in the fragment's own layout
-        // rather than in dialpad_view: its icon leads its label in the language's direction.
+        // Out of the pin: the icon leads the label in the language's direction.
         CompositionLocalProvider(LocalLayoutDirection provides localeLayoutDirection()) {
             CallButton(
                 isPseudoEmergencyNumber = uiState.isPseudoEmergencyNumber,
@@ -181,7 +166,6 @@ private fun KeypadContent(
     }
 }
 
-/** A labeled green pill, centered under the keys, sized to its content rather than the row. */
 @Composable
 private fun CallButton(
     isPseudoEmergencyNumber: Boolean,
@@ -206,7 +190,6 @@ private fun CallButton(
     ) {
         Icon(
             imageVector = Icons.Rounded.Call,
-            // The label beside it names the button.
             contentDescription = null,
             modifier = Modifier.size(CALL_ICON_SIZE),
         )
