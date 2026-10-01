@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
@@ -117,6 +118,18 @@ class KeypadScreenTest {
         composeRule.onNodeWithTag(KEYPAD_DELETE_TEST_TAG).performClick()
 
         assertEquals(listOf(KeypadAction.DeleteClicked), actions)
+    }
+
+    @Test
+    fun backspaceStaysVisibleButDisabledWithNothingToDelete() {
+        renderScreen(uiState = KeypadUiState(isDeleteEnabled = false))
+
+        composeRule.onNodeWithTag(KEYPAD_DELETE_TEST_TAG)
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
+            .performClick()
+
+        assertEquals(emptyList<KeypadAction>(), actions)
     }
 
     @Test

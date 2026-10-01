@@ -43,13 +43,14 @@ import com.android.dialer.keypad.model.KeypadUiState
 // 56dp wide too, its 24dp icon padded by 16dp either side; the overflow now matches it.
 private val TOUCH_TARGET = 56.dp
 private val ICON_SIZE = 24.dp
+private const val DISABLED_CONTENT_ALPHA = 0.38f
 
 /**
  * Overflow, the number, then backspace — the order Google's Phone app uses.
  *
- * Overflow and backspace are hidden with alpha rather than removed, so the number stays centered
- * and nothing reflows as the first character is typed or the last one deleted. The View keypad
- * made the same choice, using `INVISIBLE` rather than `GONE`.
+ * Backspace is always shown, dimmed while there is nothing to delete, as in Google's Phone app and
+ * the View keypad. Overflow is hidden with alpha rather than removed, so the number stays centered
+ * and nothing reflows as the first character is typed; the View keypad used `INVISIBLE` there.
  */
 @Composable
 internal fun KeypadDigitsRow(
@@ -123,7 +124,6 @@ private fun DeleteButton(
         modifier = Modifier
             .testTag(KEYPAD_DELETE_TEST_TAG)
             .size(TOUCH_TARGET)
-            .alpha(if (uiState.isDeleteEnabled) 1f else 0f)
             .combinedClickable(
                 enabled = uiState.isDeleteEnabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -140,7 +140,12 @@ private fun DeleteButton(
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.Backspace,
             contentDescription = strings.deleteButton,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (uiState.isDeleteEnabled) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                // Material's disabled content color, as a disabled IconButton draws it.
+                MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
+            },
             modifier = Modifier.size(ICON_SIZE),
         )
     }
