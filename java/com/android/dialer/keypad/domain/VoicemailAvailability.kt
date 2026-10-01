@@ -5,31 +5,37 @@ import android.provider.Settings
 import android.telecom.PhoneAccount
 import android.telephony.TelephonyManager
 import com.android.dialer.common.LogUtil
+import com.android.dialer.di.core.IoDispatcher
 import com.android.dialer.telecom.TelecomUtil
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 internal interface VoicemailAvailability {
 
-    fun isVoicemailReachable(): Boolean
+    suspend fun isVoicemailReachable(): Boolean
 
-    fun isAirplaneModeOn(): Boolean
+    suspend fun isAirplaneModeOn(): Boolean
 }
 
 internal class SystemVoicemailAvailability @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val telephonyManager: TelephonyManager,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : VoicemailAvailability {
 
-    override fun isVoicemailReachable(): Boolean =
+    override suspend fun isVoicemailReachable(): Boolean = withContext(ioDispatcher) {
         hasMultipleSimsWithoutDefault() || hasVoicemailNumber()
+    }
 
-    override fun isAirplaneModeOn(): Boolean =
+    override suspend fun isAirplaneModeOn(): Boolean = withContext(ioDispatcher) {
         Settings.Global.getInt(
             context.contentResolver,
             Settings.Global.AIRPLANE_MODE_ON,
             0,
         ) != 0
+    }
 
     // Reachable without a known number: Telecom then asks which SIM to call with.
     private fun hasMultipleSimsWithoutDefault(): Boolean = try {

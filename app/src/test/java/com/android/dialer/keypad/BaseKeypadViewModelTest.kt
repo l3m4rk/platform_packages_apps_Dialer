@@ -48,12 +48,12 @@ abstract class BaseKeypadViewModelTest {
 
     @Before
     fun setUpCollaborators() {
-        every { emergencyCallWarning.shouldShow() } returns false
+        coEvery { emergencyCallWarning.shouldShow() } returns false
         coEvery { phoneNumberFormatting.createWatcher() } returns null
         coEvery { lastOutgoingCall() } returns null
         every { checkIfNumberIsProhibited(any()) } returns false
         coEvery { dialIntentNumber(any()) } returns null
-        every { callWithNoteAvailability.isAvailable() } returns false
+        coEvery { callWithNoteAvailability.isAvailable() } returns false
     }
 
     internal fun createViewModel(

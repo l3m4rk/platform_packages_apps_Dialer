@@ -6,6 +6,9 @@ import com.android.dialer.util.CallUtil
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,10 +25,14 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [Build.VERSION_CODES.BAKLAVA])
+@OptIn(ExperimentalCoroutinesApi::class)
 class SystemCallWithNoteAvailabilityTest {
 
     private val application: Application = RuntimeEnvironment.getApplication()
-    private val availability = SystemCallWithNoteAvailability(context = application)
+    private val availability = SystemCallWithNoteAvailability(
+        context = application,
+        ioDispatcher = UnconfinedTestDispatcher(),
+    )
 
     @Before
     fun setUp() {
@@ -38,21 +45,21 @@ class SystemCallWithNoteAvailabilityTest {
     }
 
     @Test
-    fun availableWhenAnAccountSupportsACallSubject() {
+    fun availableWhenAnAccountSupportsACallSubject() = runTest {
         every { CallUtil.isCallWithSubjectSupported(any()) } returns true
 
         assertTrue(availability.isAvailable())
     }
 
     @Test
-    fun unavailableWhenNoAccountDoes() {
+    fun unavailableWhenNoAccountDoes() = runTest {
         every { CallUtil.isCallWithSubjectSupported(any()) } returns false
 
         assertFalse(availability.isAvailable())
     }
 
     @Test
-    fun unavailableRatherThanCrashingWithoutThePhoneNumbersPermission() {
+    fun unavailableRatherThanCrashingWithoutThePhoneNumbersPermission() = runTest {
         every { CallUtil.isCallWithSubjectSupported(any()) } throws
             SecurityException("Neither user nor current process has READ_PHONE_NUMBERS.")
 

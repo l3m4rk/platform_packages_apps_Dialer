@@ -10,6 +10,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,6 +25,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [Build.VERSION_CODES.BAKLAVA])
+@OptIn(ExperimentalCoroutinesApi::class)
 class SystemVoicemailAvailabilityTest {
 
     private val context: Context = RuntimeEnvironment.getApplication()
@@ -44,28 +48,28 @@ class SystemVoicemailAvailabilityTest {
     }
 
     @Test
-    fun singleSimIsReachableWhenTelephonyHasAVoicemailNumber() {
+    fun singleSimIsReachableWhenTelephonyHasAVoicemailNumber() = runTest {
         every { telephonyManager.voiceMailNumber } returns "+15551234567"
 
         assertTrue(createAvailability().isVoicemailReachable())
     }
 
     @Test
-    fun singleSimIsNotReachableWithoutAVoicemailNumber() {
+    fun singleSimIsNotReachableWithoutAVoicemailNumber() = runTest {
         every { telephonyManager.voiceMailNumber } returns null
 
         assertFalse(createAvailability().isVoicemailReachable())
     }
 
     @Test
-    fun singleSimIsNotReachableWithAnEmptyVoicemailNumber() {
+    fun singleSimIsNotReachableWithAnEmptyVoicemailNumber() = runTest {
         every { telephonyManager.voiceMailNumber } returns ""
 
         assertFalse(createAvailability().isVoicemailReachable())
     }
 
     @Test
-    fun aChosenAccountIsAskedInsteadOfTelephony() {
+    fun aChosenAccountIsAskedInsteadOfTelephony() = runTest {
         every { TelecomUtil.getDefaultOutgoingPhoneAccount(any(), any()) } returns simAccount
         every { TelecomUtil.getVoicemailNumber(any(), simAccount) } returns "+15557654321"
         // Telephony would answer differently; the chosen account must win.
@@ -75,7 +79,7 @@ class SystemVoicemailAvailabilityTest {
     }
 
     @Test
-    fun multiSimWithoutADefaultIsReachableSoTelecomCanAsk() {
+    fun multiSimWithoutADefaultIsReachableSoTelecomCanAsk() = runTest {
         every { TelecomUtil.getSubscriptionPhoneAccounts(any()) } returns
             listOf(simAccount, secondSimAccount)
         every { TelecomUtil.getDefaultOutgoingPhoneAccount(any(), any()) } returns null
@@ -86,7 +90,7 @@ class SystemVoicemailAvailabilityTest {
     }
 
     @Test
-    fun multiSimWithADefaultFallsBackToTheNumberCheck() {
+    fun multiSimWithADefaultFallsBackToTheNumberCheck() = runTest {
         every { TelecomUtil.getSubscriptionPhoneAccounts(any()) } returns
             listOf(simAccount, secondSimAccount)
         every { TelecomUtil.getDefaultOutgoingPhoneAccount(any(), any()) } returns simAccount
@@ -96,7 +100,7 @@ class SystemVoicemailAvailabilityTest {
     }
 
     @Test
-    fun isNotReachableWhenReadingTheAccountsThrows() {
+    fun isNotReachableWhenReadingTheAccountsThrows() = runTest {
         every { TelecomUtil.getSubscriptionPhoneAccounts(any()) } throws
             SecurityException("no READ_PHONE_STATE")
 
@@ -104,21 +108,21 @@ class SystemVoicemailAvailabilityTest {
     }
 
     @Test
-    fun isNotReachableWhenReadingTheVoicemailNumberThrows() {
+    fun isNotReachableWhenReadingTheVoicemailNumberThrows() = runTest {
         every { telephonyManager.voiceMailNumber } throws SecurityException("no READ_PHONE_STATE")
 
         assertFalse(createAvailability().isVoicemailReachable())
     }
 
     @Test
-    fun airplaneModeIsReadFromGlobalSettings() {
+    fun airplaneModeIsReadFromGlobalSettings() = runTest {
         setAirplaneMode(enabled = true)
 
         assertTrue(createAvailability().isAirplaneModeOn())
     }
 
     @Test
-    fun airplaneModeIsOffByDefault() {
+    fun airplaneModeIsOffByDefault() = runTest {
         setAirplaneMode(enabled = false)
 
         assertFalse(createAvailability().isAirplaneModeOn())
@@ -127,6 +131,7 @@ class SystemVoicemailAvailabilityTest {
     private fun createAvailability() = SystemVoicemailAvailability(
         context = context,
         telephonyManager = telephonyManager,
+        ioDispatcher = UnconfinedTestDispatcher(),
     )
 
     private fun setAirplaneMode(enabled: Boolean) {

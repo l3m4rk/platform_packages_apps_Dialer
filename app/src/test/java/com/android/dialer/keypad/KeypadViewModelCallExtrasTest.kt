@@ -23,7 +23,7 @@ class KeypadViewModelCallExtrasTest : BaseKeypadViewModelTest() {
 
     @Test
     fun callWithANoteIsOfferedWhenAnAccountSupportsIt() {
-        every { callWithNoteAvailability.isAvailable() } returns true
+        coEvery { callWithNoteAvailability.isAvailable() } returns true
         val viewModel = createViewModel()
 
         viewModel.onHostStarted()
@@ -47,7 +47,7 @@ class KeypadViewModelCallExtrasTest : BaseKeypadViewModelTest() {
         viewModel.onHostStopped()
 
         // The SIM or carrier changed while the keypad was away.
-        every { callWithNoteAvailability.isAvailable() } returns true
+        coEvery { callWithNoteAvailability.isAvailable() } returns true
         viewModel.onHostStarted()
 
         assertTrue(viewModel.uiState.value.isCallWithNoteAvailable)

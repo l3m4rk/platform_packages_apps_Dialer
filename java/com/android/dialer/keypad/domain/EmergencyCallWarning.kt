@@ -5,25 +5,28 @@ import android.content.Context
 import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import com.android.dialer.common.LogUtil
+import com.android.dialer.di.core.IoDispatcher
 import com.android.dialer.util.PermissionsUtil
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 /** The "can't make emergency calls over wifi" hint: only some carriers want it, without service. */
-internal fun interface EmergencyCallWarning {
-    fun shouldShow(): Boolean
+internal interface EmergencyCallWarning {
+    suspend fun shouldShow(): Boolean
 }
 
 internal class SystemEmergencyCallWarning @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val telephonyManager: TelephonyManager,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : EmergencyCallWarning {
 
-    override fun shouldShow(): Boolean {
-        if (!PermissionsUtil.hasReadPhoneStatePermissions(context)) {
-            return false
-        }
-        return isRequiredByCarrier() && isWithoutService()
+    override suspend fun shouldShow(): Boolean = withContext(ioDispatcher) {
+        PermissionsUtil.hasReadPhoneStatePermissions(context) &&
+            isRequiredByCarrier() &&
+            isWithoutService()
     }
 
     @SuppressLint("MissingPermission")

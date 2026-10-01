@@ -82,6 +82,9 @@ internal class KeypadViewModel @Inject constructor(
 
     private var pseudoEmergencyPulses: Job? = null
 
+    /** Cancelled by a newer refresh, whose result an older one must not overwrite. */
+    private var warningRefresh: Job? = null
+
     private val isEmergencyCallWarningActive = MutableStateFlow(false)
 
     private val isCallWithNoteAvailable = MutableStateFlow(false)
@@ -165,7 +168,9 @@ internal class KeypadViewModel @Inject constructor(
         tonePlayer.acquire()
         // Service state, SIMs and permissions may have changed while the keypad was away.
         refreshEmergencyCallWarning()
-        isCallWithNoteAvailable.value = callWithNoteAvailability.isAvailable()
+        viewModelScope.launch {
+            isCallWithNoteAvailable.value = callWithNoteAvailability.isAvailable()
+        }
         viewModelScope.launch { lastDialedNumber = lastOutgoingCall() }
     }
 
@@ -240,12 +245,14 @@ internal class KeypadViewModel @Inject constructor(
         digits.removePreviousDigitIfPossible('1')
         digits.removePreviousDigitIfPossible('1')
 
-        when {
-            voicemailAvailability.isVoicemailReachable() ->
-                emitEffect(KeypadScreenEffect.CallVoicemail)
-            voicemailAvailability.isAirplaneModeOn() ->
-                showError(KeypadError.VOICEMAIL_AIRPLANE_MODE)
-            else -> showError(KeypadError.VOICEMAIL_NOT_READY)
+        viewModelScope.launch {
+            when {
+                voicemailAvailability.isVoicemailReachable() ->
+                    _effects.emit(KeypadScreenEffect.CallVoicemail)
+                voicemailAvailability.isAirplaneModeOn() ->
+                    showError(KeypadError.VOICEMAIL_AIRPLANE_MODE)
+                else -> showError(KeypadError.VOICEMAIL_NOT_READY)
+            }
         }
     }
 
@@ -336,7 +343,10 @@ internal class KeypadViewModel @Inject constructor(
     }
 
     private fun refreshEmergencyCallWarning() {
-        isEmergencyCallWarningActive.value = emergencyCallWarning.shouldShow()
+        warningRefresh?.cancel()
+        warningRefresh = viewModelScope.launch {
+            isEmergencyCallWarningActive.value = emergencyCallWarning.shouldShow()
+        }
     }
 
     private fun emitEffect(effect: KeypadScreenEffect) {

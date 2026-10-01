@@ -8,6 +8,9 @@ import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -22,6 +25,7 @@ private const val EMERGENCY_NOTIFICATION_DELAY_KEY = "emergency_notification_del
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [Build.VERSION_CODES.BAKLAVA])
+@OptIn(ExperimentalCoroutinesApi::class)
 class SystemEmergencyCallWarningTest {
 
     private val context: Context = RuntimeEnvironment.getApplication()
@@ -35,33 +39,33 @@ class SystemEmergencyCallWarningTest {
     }
 
     @Test
-    fun warnsWhenTheCarrierAsksForItAndThereIsNoService() {
+    fun warnsWhenTheCarrierAsksForItAndThereIsNoService() = runTest {
         assertTrue(createWarning().shouldShow())
     }
 
     @Test
-    fun warnsWhenTheRadioIsOff() {
+    fun warnsWhenTheRadioIsOff() = runTest {
         setServiceState(ServiceState.STATE_POWER_OFF)
 
         assertTrue(createWarning().shouldShow())
     }
 
     @Test
-    fun doesNotWarnWhileInService() {
+    fun doesNotWarnWhileInService() = runTest {
         setServiceState(ServiceState.STATE_IN_SERVICE)
 
         assertFalse(createWarning().shouldShow())
     }
 
     @Test
-    fun doesNotWarnWhileEmergencyCallsAreStillPossible() {
+    fun doesNotWarnWhileEmergencyCallsAreStillPossible() = runTest {
         setServiceState(ServiceState.STATE_EMERGENCY_ONLY)
 
         assertFalse(createWarning().shouldShow())
     }
 
     @Test
-    fun doesNotWarnWhenTheCarrierHasNotAskedForIt() {
+    fun doesNotWarnWhenTheCarrierHasNotAskedForIt() = runTest {
         // -1 is the documented "not pertinent for this carrier" value.
         setCarrierDelay(delayMillis = -1)
 
@@ -69,21 +73,21 @@ class SystemEmergencyCallWarningTest {
     }
 
     @Test
-    fun doesNotWarnWhenTheCarrierConfigIsUnavailable() {
+    fun doesNotWarnWhenTheCarrierConfigIsUnavailable() = runTest {
         every { telephonyManager.carrierConfig } returns null
 
         assertFalse(createWarning().shouldShow())
     }
 
     @Test
-    fun doesNotWarnWithoutTheReadPhoneStatePermission() {
+    fun doesNotWarnWithoutTheReadPhoneStatePermission() = runTest {
         denyReadPhoneState()
 
         assertFalse(createWarning().shouldShow())
     }
 
     @Test
-    fun doesNotWarnWhenTheServiceStateIsUnreadable() {
+    fun doesNotWarnWhenTheServiceStateIsUnreadable() = runTest {
         // getServiceState also needs ACCESS_FINE_LOCATION since API 29 and returns null without it.
         // The fragment dereferenced this unguarded, so an unprivileged install crashed here.
         every { telephonyManager.serviceState } returns null
@@ -92,14 +96,14 @@ class SystemEmergencyCallWarningTest {
     }
 
     @Test
-    fun doesNotWarnWhenReadingTheServiceStateThrows() {
+    fun doesNotWarnWhenReadingTheServiceStateThrows() = runTest {
         every { telephonyManager.serviceState } throws SecurityException("no location permission")
 
         assertFalse(createWarning().shouldShow())
     }
 
     @Test
-    fun doesNotWarnOnAnUnrecognisedServiceState() {
+    fun doesNotWarnOnAnUnrecognisedServiceState() = runTest {
         // The fragment threw AssertionError here, taking the app down on a state it did not know.
         setServiceState(Int.MAX_VALUE)
 
@@ -109,6 +113,7 @@ class SystemEmergencyCallWarningTest {
     private fun createWarning() = SystemEmergencyCallWarning(
         context = context,
         telephonyManager = telephonyManager,
+        ioDispatcher = UnconfinedTestDispatcher(),
     )
 
     private fun setCarrierDelay(delayMillis: Int) {

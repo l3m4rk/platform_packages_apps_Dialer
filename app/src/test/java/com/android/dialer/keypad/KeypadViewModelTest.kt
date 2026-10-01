@@ -12,8 +12,10 @@ import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import io.mockk.clearMocks
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -185,7 +187,7 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun longPressingOneOnAnEmptyFieldCallsVoicemail() = runTest {
-        every { voicemailAvailability.isVoicemailReachable() } returns true
+        coEvery { voicemailAvailability.isVoicemailReachable() } returns true
         val viewModel = createViewModel()
 
         viewModel.effects.test {
@@ -198,7 +200,7 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun longPressingOneRemovesTheDigitsThePressTyped() = runTest {
-        every { voicemailAvailability.isVoicemailReachable() } returns true
+        coEvery { voicemailAvailability.isVoicemailReachable() } returns true
         val viewModel = createViewModel()
         viewModel.press(KeypadKey.ONE)
 
@@ -213,7 +215,7 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun longPressingOneAfterTouchExplorationTypedTwoOnesStillCallsVoicemail() = runTest {
-        every { voicemailAvailability.isVoicemailReachable() } returns true
+        coEvery { voicemailAvailability.isVoicemailReachable() } returns true
         val viewModel = createViewModel()
         viewModel.press(KeypadKey.ONE, KeypadKey.ONE)
 
@@ -243,8 +245,8 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun longPressingOneWithoutVoicemailInAirplaneModeExplainsWhy() {
-        every { voicemailAvailability.isVoicemailReachable() } returns false
-        every { voicemailAvailability.isAirplaneModeOn() } returns true
+        coEvery { voicemailAvailability.isVoicemailReachable() } returns false
+        coEvery { voicemailAvailability.isAirplaneModeOn() } returns true
         val viewModel = createViewModel()
 
         viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
@@ -254,8 +256,8 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun longPressingOneWithoutVoicemailOtherwiseReportsItIsNotReady() {
-        every { voicemailAvailability.isVoicemailReachable() } returns false
-        every { voicemailAvailability.isAirplaneModeOn() } returns false
+        coEvery { voicemailAvailability.isVoicemailReachable() } returns false
+        coEvery { voicemailAvailability.isAirplaneModeOn() } returns false
         val viewModel = createViewModel()
 
         viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
@@ -265,7 +267,7 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun theErrorStaysUntilDismissed() {
-        every { voicemailAvailability.isVoicemailReachable() } returns false
+        coEvery { voicemailAvailability.isVoicemailReachable() } returns false
         val viewModel = createViewModel()
         viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
@@ -278,7 +280,7 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun anErrorOnScreenSurvivesTheProcess() {
-        every { voicemailAvailability.isVoicemailReachable() } returns false
+        coEvery { voicemailAvailability.isVoicemailReachable() } returns false
         val handle = SavedStateHandle()
         createViewModel(handle).onAction(KeypadAction.VoicemailKeyLongPressed)
 
@@ -428,7 +430,7 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun theEmergencyWarningShowsOnlyWhileTheFieldIsEmpty() {
-        every { emergencyCallWarning.shouldShow() } returns true
+        coEvery { emergencyCallWarning.shouldShow() } returns true
         val viewModel = createViewModel()
 
         assertTrue(viewModel.uiState.value.showsEmergencyCallWarning)
@@ -440,13 +442,13 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun theEmergencyWarningIsRefreshedWhenTheHostReturns() {
-        every { emergencyCallWarning.shouldShow() } returns false
+        coEvery { emergencyCallWarning.shouldShow() } returns false
         val viewModel = createViewModel()
         assertFalse(viewModel.uiState.value.showsEmergencyCallWarning)
 
         // Airplane mode went on while the keypad was away; the digits never changed, so nothing
         // else would prompt a re-read.
-        every { emergencyCallWarning.shouldShow() } returns true
+        coEvery { emergencyCallWarning.shouldShow() } returns true
         viewModel.onHostStarted()
 
         assertTrue(viewModel.uiState.value.showsEmergencyCallWarning)
@@ -454,14 +456,27 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
     @Test
     fun theEmergencyWarningIsRefreshedWhenTheFieldEmptiesAgain() {
-        every { emergencyCallWarning.shouldShow() } returns false
+        coEvery { emergencyCallWarning.shouldShow() } returns false
         val viewModel = createViewModel()
         viewModel.press(KeypadKey.ONE)
 
-        every { emergencyCallWarning.shouldShow() } returns true
+        coEvery { emergencyCallWarning.shouldShow() } returns true
         viewModel.onAction(KeypadAction.DeleteClicked)
 
         assertTrue(viewModel.uiState.value.showsEmergencyCallWarning)
+    }
+
+    @Test
+    fun aSlowWarningLookupDoesNotOverwriteANewerOne() {
+        val slowLookup = CompletableDeferred<Boolean>()
+        coEvery { emergencyCallWarning.shouldShow() } coAnswers { slowLookup.await() }
+        val viewModel = createViewModel()
+
+        coEvery { emergencyCallWarning.shouldShow() } returns false
+        viewModel.onHostStarted()
+        slowLookup.complete(true)
+
+        assertFalse(viewModel.uiState.value.showsEmergencyCallWarning)
     }
 
     @Test
@@ -472,7 +487,7 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
 
         viewModel.press(KeypadKey.ONE)
 
-        verify(exactly = 0) { emergencyCallWarning.shouldShow() }
+        coVerify(exactly = 0) { emergencyCallWarning.shouldShow() }
     }
 
     // endregion
