@@ -93,23 +93,9 @@ class KeypadHapticsTest {
         composeRule.setContent {
             CompositionLocalProvider(LocalHapticFeedback provides recorder) {
                 DialerTheme {
-                    KeypadScreen(uiState = uiState, strings = STRINGS, onAction = {})
+                    KeypadScreen(uiState = uiState, strings = TEST_KEYPAD_STRINGS, onAction = {})
                 }
             }
         }
-    }
-
-    private companion object {
-        private val STRINGS = KeypadStrings(
-            voicemailKeyAction = "call voicemail",
-            plusKeyAction = "dial plus",
-            deleteButton = "backspace",
-            overflowButton = "More options",
-            call = "Call",
-            emergencyCallWarning = "no emergency calls over wifi",
-            addPause = "Add 2-sec pause",
-            addWait = "Add wait",
-            callWithNote = "Call with a note",
-        )
     }
 }

@@ -160,7 +160,7 @@ class KeypadDigitsFieldTest {
                         isDeleteEnabled = field.text.isNotEmpty(),
                         isOverflowVisible = field.text.isNotEmpty(),
                     ),
-                    strings = STRINGS,
+                    strings = TEST_KEYPAD_STRINGS,
                     onAction = { action ->
                         actions += action
                         if (action is KeypadAction.DigitsEdited) {
@@ -174,19 +174,5 @@ class KeypadDigitsFieldTest {
                 )
             }
         }
-    }
-
-    private companion object {
-        private val STRINGS = KeypadStrings(
-            voicemailKeyAction = "call voicemail",
-            plusKeyAction = "dial plus",
-            deleteButton = "backspace",
-            overflowButton = "More options",
-            call = "Call",
-            emergencyCallWarning = "no emergency calls over wifi",
-            addPause = "Add 2-sec pause",
-            addWait = "Add wait",
-            callWithNote = "Call with a note",
-        )
     }
 }

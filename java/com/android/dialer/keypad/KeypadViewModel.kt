@@ -17,6 +17,7 @@ import com.android.dialer.keypad.domain.Vibration
 import com.android.dialer.keypad.domain.VoicemailAvailability
 import com.android.dialer.keypad.model.DialpadDigits
 import com.android.dialer.keypad.model.KeypadAction
+import com.android.dialer.keypad.model.KeypadError
 import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.keypad.model.KeypadUiState
@@ -108,6 +109,14 @@ internal class KeypadViewModel @Inject constructor(
     private val isCallWithNoteAvailable = MutableStateFlow(false)
 
     /**
+     * The error dialog on screen, if any. Saved with the number, as the legacy dialog fragment was
+     * restored by its fragment manager.
+     */
+    private val error = MutableStateFlow(
+        savedStateHandle.get<String>(KEY_ERROR)?.let(KeypadError::valueOf),
+    )
+
+    /**
      * Derived from its inputs rather than pushed by each action, so a new action cannot forget to
      * republish.
      *
@@ -119,7 +128,8 @@ internal class KeypadViewModel @Inject constructor(
         digits.value,
         isEmergencyCallWarningActive,
         isCallWithNoteAvailable,
-    ) { value, warningActive, callWithNoteAvailable ->
+        error,
+    ) { value, warningActive, callWithNoteAvailable, error ->
         val text = value.text
         KeypadUiState(
             digits = text,
@@ -131,6 +141,7 @@ internal class KeypadViewModel @Inject constructor(
             showsEmergencyCallWarning = text.isEmpty() && warningActive,
             isPseudoEmergencyNumber = PseudoEmergency.matches(text),
             isCallWithNoteAvailable = callWithNoteAvailable,
+            error = error,
         )
     }
         .stateIn(
@@ -245,6 +256,7 @@ internal class KeypadViewModel @Inject constructor(
             KeypadAction.PauseClicked -> digits.insertDialStringChar(PAUSE)
             KeypadAction.WaitClicked -> digits.insertDialStringChar(WAIT)
             KeypadAction.CallClicked -> onCallClicked()
+            KeypadAction.ErrorDismissed -> showError(null)
             is KeypadAction.CharacterTyped -> digits.append(action.char)
             is KeypadAction.DigitsEdited ->
                 digits.applyEdit(action.text, action.selectionStart, action.selectionEnd)
@@ -276,14 +288,13 @@ internal class KeypadViewModel @Inject constructor(
         digits.removePreviousDigitIfPossible('1')
         digits.removePreviousDigitIfPossible('1')
 
-        emitEffect(
-            when {
-                voicemailAvailability.isVoicemailReachable() -> KeypadScreenEffect.CallVoicemail
-                voicemailAvailability.isAirplaneModeOn() ->
-                    KeypadScreenEffect.ShowVoicemailAirplaneModeError
-                else -> KeypadScreenEffect.ShowVoicemailNotReadyError
-            },
-        )
+        when {
+            voicemailAvailability.isVoicemailReachable() ->
+                emitEffect(KeypadScreenEffect.CallVoicemail)
+            voicemailAvailability.isAirplaneModeOn() ->
+                showError(KeypadError.VOICEMAIL_AIRPLANE_MODE)
+            else -> showError(KeypadError.VOICEMAIL_NOT_READY)
+        }
     }
 
     private fun onPlusKeyLongPressed() {
@@ -312,7 +323,7 @@ internal class KeypadViewModel @Inject constructor(
             number.isEmpty() -> recallLastDialedNumber()
             checkIfNumberIsProhibited(number) -> {
                 digits.clear()
-                emitEffect(KeypadScreenEffect.ShowProhibitedNumberError)
+                showError(KeypadError.PROHIBITED_NUMBER)
             }
             else -> emitEffect(KeypadScreenEffect.PlaceCall(number))
         }
@@ -382,6 +393,11 @@ internal class KeypadViewModel @Inject constructor(
         )
     }
 
+    private fun showError(value: KeypadError?) {
+        error.value = value
+        savedStateHandle[KEY_ERROR] = value?.name
+    }
+
     private fun refreshEmergencyCallWarning() {
         isEmergencyCallWarningActive.value = emergencyCallWarning.shouldShow()
     }
@@ -397,5 +413,6 @@ internal class KeypadViewModel @Inject constructor(
         private const val KEY_SELECTION_START = "keypad_selection_start"
         private const val KEY_SELECTION_END = "keypad_selection_end"
         private const val KEY_FILLED_BY_INTENT = "keypad_filled_by_intent"
+        private const val KEY_ERROR = "keypad_error"
     }
 }

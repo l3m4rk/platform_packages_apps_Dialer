@@ -187,7 +187,7 @@ class KeypadPlacementTest {
                                 isDeleteEnabled = true,
                                 isOverflowVisible = true,
                             ),
-                            strings = STRINGS,
+                            strings = TEST_KEYPAD_STRINGS,
                             onAction = {},
                             modifier = placement,
                         )
@@ -204,7 +204,8 @@ class KeypadPlacementTest {
 
     private fun callLabelCentre(): Dp = composeRule
         .onNode(
-            matcher = hasText(STRINGS.call) and hasAnyAncestor(hasTestTag(KEYPAD_CALL_TEST_TAG)),
+            matcher = hasText(TEST_KEYPAD_STRINGS.call) and
+                hasAnyAncestor(hasTestTag(KEYPAD_CALL_TEST_TAG)),
             useUnmergedTree = true,
         )
         .getBoundsInRoot()
@@ -252,17 +253,5 @@ class KeypadPlacementTest {
         private val TOLERANCE = 1.dp
         private val MIN_KEY_HEIGHT = 40.dp
         private val MIN_TOUCH_TARGET = 48.dp
-
-        private val STRINGS = KeypadStrings(
-            voicemailKeyAction = "call voicemail",
-            plusKeyAction = "dial plus",
-            deleteButton = "backspace",
-            overflowButton = "More options",
-            call = "Call",
-            emergencyCallWarning = "no emergency calls over wifi",
-            addPause = "Add 2-sec pause",
-            addWait = "Add wait",
-            callWithNote = "Call with a note",
-        )
     }
 }

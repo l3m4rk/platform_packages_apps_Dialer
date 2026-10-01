@@ -100,7 +100,7 @@ class KeyEntranceTest {
             DialerTheme {
                 KeypadScreen(
                     uiState = KeypadUiState(),
-                    strings = STRINGS,
+                    strings = TEST_KEYPAD_STRINGS,
                     onAction = {},
                     entranceState = entranceState,
                 )
@@ -121,7 +121,7 @@ class KeyEntranceTest {
             DialerTheme {
                 KeypadScreen(
                     uiState = KeypadUiState(),
-                    strings = STRINGS,
+                    strings = TEST_KEYPAD_STRINGS,
                     onAction = {},
                     entranceState = entranceState,
                 )
@@ -138,7 +138,11 @@ class KeyEntranceTest {
     private fun render() {
         composeRule.setContent {
             DialerTheme {
-                KeypadGrid(strings = STRINGS, onAction = {}, entranceState = entranceState)
+                KeypadGrid(
+                    strings = TEST_KEYPAD_STRINGS,
+                    onAction = {},
+                    entranceState = entranceState,
+                )
             }
         }
         composeRule.mainClock.autoAdvance = false
@@ -171,17 +175,5 @@ class KeyEntranceTest {
         private const val FRAME_MS = 16L
         private const val ONE_SECOND_MS = 1_000L
         private val TOLERANCE = 0.5.dp
-
-        private val STRINGS = KeypadStrings(
-            voicemailKeyAction = "call voicemail",
-            plusKeyAction = "dial plus",
-            deleteButton = "backspace",
-            overflowButton = "More options",
-            call = "Call",
-            emergencyCallWarning = "no emergency calls over wifi",
-            addPause = "Add 2-sec pause",
-            addWait = "Add wait",
-            callWithNote = "Call with a note",
-        )
     }
 }

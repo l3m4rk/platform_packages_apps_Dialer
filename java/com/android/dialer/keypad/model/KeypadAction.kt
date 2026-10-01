@@ -51,6 +51,9 @@ internal sealed interface KeypadAction {
         val selectionEnd: Int,
     ) : KeypadAction
 
+    /** The error dialog's OK, or a tap outside it. */
+    data object ErrorDismissed : KeypadAction
+
     /** The overflow menu's "Call with a note". */
     data object CallWithNoteClicked : KeypadAction
 }

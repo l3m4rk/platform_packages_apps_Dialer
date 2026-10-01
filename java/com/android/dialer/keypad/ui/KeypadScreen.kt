@@ -100,6 +100,15 @@ internal fun KeypadScreen(
             )
         }
     }
+
+    // Outside the keypad's left-to-right pin: a dialog of text follows the language.
+    uiState.error?.let { error ->
+        KeypadErrorDialog(
+            error = error,
+            strings = strings,
+            onDismiss = { onAction(KeypadAction.ErrorDismissed) },
+        )
+    }
 }
 
 @Composable

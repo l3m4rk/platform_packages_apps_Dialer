@@ -26,7 +26,6 @@ import com.android.dialer.callintent.CallIntentBuilder
 import com.android.dialer.common.Assert
 import com.android.dialer.common.FragmentUtils
 import com.android.dialer.common.LogUtil
-import com.android.dialer.dialpadview.DialpadFragment
 import com.android.dialer.dialpadview.SpecialCharSequenceMgr
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import com.android.dialer.keypad.ui.KeypadEntranceState
@@ -48,15 +47,26 @@ import kotlinx.coroutines.flow.map
  * commit to each separately.
  *
  * The public surface mirrors the parts of `DialpadFragment` that `MainSearchController` actually
- * calls, and the host callbacks are the same `DialpadFragment` interfaces, so switching the host
- * over is a type change rather than a rewrite. `getLastOutgoingCall` is the one callback no longer
- * used: the view model reads the call log itself.
+ * calls, and [HostListener] and [OnQueryChangedListener] are that fragment's host callbacks, moved
+ * here with the same methods, less `getLastOutgoingCall`: the view model reads the call log itself.
  *
  * The view model is the activity's rather than this fragment's. That matches how the host uses the
  * fragment: it hides it rather than removing it, specifically so that the number survives the
  * keypad being dismissed.
  */
 class KeypadFragment : Fragment() {
+
+    /** What the keypad tells its host. Was `DialpadFragment.DialpadListener`. */
+    interface HostListener {
+        fun onDialpadShown()
+
+        fun onCallPlacedFromDialpad()
+    }
+
+    /** Every change of number, for the host to search on. Was `DialpadFragment`'s too. */
+    fun interface OnQueryChangedListener {
+        fun onDialpadQueryChanged(query: String)
+    }
 
     // The activity is a Hilt entry point, so its default factory builds the Hilt view model.
     private val viewModel: KeypadViewModel by lazy {
@@ -106,8 +116,7 @@ class KeypadFragment : Fragment() {
                     focusRequests = shows,
                     onEffect = ::handleEffect,
                     onQueryChanged = { query ->
-                        parent<DialpadFragment.OnDialpadQueryChangedListener>()
-                            .onDialpadQueryChanged(query)
+                        parent<OnQueryChangedListener>().onDialpadQueryChanged(query)
                     },
                 )
             }
@@ -143,7 +152,7 @@ class KeypadFragment : Fragment() {
         }
         // Add call brings up an empty keypad; nothing to fill. The flag is left set, as
         // DialpadFragment left it.
-        if (DialpadFragment.isAddCallMode(intent)) {
+        if (isAddCallMode(intent)) {
             startedFromNewIntent = true
             return
         }
@@ -180,7 +189,7 @@ class KeypadFragment : Fragment() {
                 keyEntrance.play()
             }
             shows++
-            parent<DialpadFragment.DialpadListener>().onDialpadShown()
+            parent<HostListener>().onDialpadShown()
         }
     }
 
@@ -265,21 +274,9 @@ class KeypadFragment : Fragment() {
                 placeCall(CallIntentBuilder(effect.number, CallInitiationType.Type.DIALPAD))
             KeypadScreenEffect.CallVoicemail ->
                 placeCall(CallIntentBuilder.forVoicemail(CallInitiationType.Type.DIALPAD))
-            KeypadScreenEffect.ShowVoicemailAirplaneModeError -> showError(
-                message = R.string.dialog_voicemail_airplane_mode_message,
-                tag = VOICEMAIL_AIRPLANE_MODE_DIALOG_TAG,
-            )
-            KeypadScreenEffect.ShowVoicemailNotReadyError -> showError(
-                message = R.string.dialog_voicemail_not_ready_message,
-                tag = VOICEMAIL_NOT_READY_DIALOG_TAG,
-            )
-            KeypadScreenEffect.ShowProhibitedNumberError -> showError(
-                message = R.string.dialog_phone_call_prohibited_message,
-                tag = PROHIBITED_NUMBER_DIALOG_TAG,
-            )
             is KeypadScreenEffect.CallWithNote -> {
                 CallSubjectDialog.start(requireActivity(), effect.number)
-                parent<DialpadFragment.DialpadListener>().onCallPlacedFromDialpad()
+                parent<HostListener>().onCallPlacedFromDialpad()
             }
             is KeypadScreenEffect.RunSpecialCode -> runSpecialCode(effect.input)
         }
@@ -306,29 +303,29 @@ class KeypadFragment : Fragment() {
 
     private fun placeCall(builder: CallIntentBuilder) {
         PreCall.start(requireActivity(), builder)
-        parent<DialpadFragment.DialpadListener>().onCallPlacedFromDialpad()
-    }
-
-    // The legacy dialog is still a framework DialogFragment, so it needs the framework manager.
-    // Replaced along with the rest of DialpadFragment.
-    @Suppress("DEPRECATION")
-    private fun showError(message: Int, tag: String) {
-        DialpadFragment.ErrorDialogFragment.newInstance(message)
-            .show(requireActivity().fragmentManager, tag)
+        parent<HostListener>().onCallPlacedFromDialpad()
     }
 
     private inline fun <reified T> parent(): T = FragmentUtils.getParentUnsafe(this, T::class.java)
 
-    private companion object {
+    companion object {
         private const val TAG = "KeypadFragment"
 
-        private const val KEY_IS_DIALPAD_SLIDE_UP = "pref_is_dialpad_slide_out"
+        // Set by Telecom when the in-call screen opens the dialer to add a call.
+        private const val EXTRA_ADD_CALL_MODE = "add_call_mode"
 
-        // Fragment tags for the error dialogs, unchanged from DialpadFragment.
-        private const val VOICEMAIL_AIRPLANE_MODE_DIALOG_TAG =
-            "voicemail_request_during_airplane_mode"
-        private const val VOICEMAIL_NOT_READY_DIALOG_TAG = "voicemail_not_ready"
-        private const val PROHIBITED_NUMBER_DIALOG_TAG = "phone_prohibited_dialog"
+        /**
+         * Whether [intent] is the in-call screen's "add call", which opens an empty keypad. Was
+         * `DialpadFragment.isAddCallMode`.
+         */
+        @JvmStatic
+        fun isAddCallMode(intent: Intent?): Boolean = when (intent?.action) {
+            Intent.ACTION_DIAL, Intent.ACTION_VIEW ->
+                intent.getBooleanExtra(EXTRA_ADD_CALL_MODE, false)
+            else -> false
+        }
+
+        private const val KEY_IS_DIALPAD_SLIDE_UP = "pref_is_dialpad_slide_out"
     }
 }
 

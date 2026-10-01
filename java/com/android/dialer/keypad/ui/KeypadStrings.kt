@@ -25,6 +25,10 @@ internal data class KeypadStrings(
     val addPause: String,
     val addWait: String,
     val callWithNote: String,
+    val voicemailAirplaneModeError: String,
+    val voicemailNotReadyError: String,
+    val prohibitedNumberError: String,
+    val ok: String,
     val keyLabels: KeypadKeyLabels = KeypadKeyLabels(),
 )
 
@@ -39,5 +43,9 @@ internal fun keypadStrings(): KeypadStrings = KeypadStrings(
     addPause = stringResource(R.string.add_2sec_pause),
     addWait = stringResource(R.string.add_wait),
     callWithNote = stringResource(R.string.call_with_a_note),
+    voicemailAirplaneModeError = stringResource(R.string.dialog_voicemail_airplane_mode_message),
+    voicemailNotReadyError = stringResource(R.string.dialog_voicemail_not_ready_message),
+    prohibitedNumberError = stringResource(R.string.dialog_phone_call_prohibited_message),
+    ok = stringResource(android.R.string.ok),
     keyLabels = keypadKeyLabels(),
 )

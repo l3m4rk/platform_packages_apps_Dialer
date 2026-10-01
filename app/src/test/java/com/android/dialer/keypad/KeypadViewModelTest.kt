@@ -1,11 +1,13 @@
 package com.android.dialer.keypad
 
 import android.media.ToneGenerator
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.android.dialer.dialpadview.DialerPhoneNumberFormattingTextWatcher
 import com.android.dialer.keypad.domain.TONE_LENGTH_INFINITE
 import com.android.dialer.keypad.domain.TONE_LENGTH_MS
 import com.android.dialer.keypad.model.KeypadAction
+import com.android.dialer.keypad.model.KeypadError
 import com.android.dialer.keypad.model.KeypadKey
 import com.android.dialer.keypad.model.KeypadScreenEffect
 import io.mockk.clearMocks
@@ -15,6 +17,7 @@ import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -239,31 +242,50 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
     }
 
     @Test
-    fun longPressingOneWithoutVoicemailInAirplaneModeExplainsWhy() = runTest {
+    fun longPressingOneWithoutVoicemailInAirplaneModeExplainsWhy() {
         every { voicemailAvailability.isVoicemailReachable() } returns false
         every { voicemailAvailability.isAirplaneModeOn() } returns true
         val viewModel = createViewModel()
 
-        viewModel.effects.test {
-            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
+        viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
-            assertEquals(KeypadScreenEffect.ShowVoicemailAirplaneModeError, awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
+        assertEquals(KeypadError.VOICEMAIL_AIRPLANE_MODE, viewModel.uiState.value.error)
     }
 
     @Test
-    fun longPressingOneWithoutVoicemailOtherwiseReportsItIsNotReady() = runTest {
+    fun longPressingOneWithoutVoicemailOtherwiseReportsItIsNotReady() {
         every { voicemailAvailability.isVoicemailReachable() } returns false
         every { voicemailAvailability.isAirplaneModeOn() } returns false
         val viewModel = createViewModel()
 
-        viewModel.effects.test {
-            viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
+        viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
 
-            assertEquals(KeypadScreenEffect.ShowVoicemailNotReadyError, awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
+        assertEquals(KeypadError.VOICEMAIL_NOT_READY, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun theErrorStaysUntilDismissed() {
+        every { voicemailAvailability.isVoicemailReachable() } returns false
+        val viewModel = createViewModel()
+        viewModel.onAction(KeypadAction.VoicemailKeyLongPressed)
+
+        viewModel.press(KeypadKey.FIVE)
+        assertEquals(KeypadError.VOICEMAIL_NOT_READY, viewModel.uiState.value.error)
+
+        viewModel.onAction(KeypadAction.ErrorDismissed)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun anErrorOnScreenSurvivesTheProcess() {
+        every { voicemailAvailability.isVoicemailReachable() } returns false
+        val handle = SavedStateHandle()
+        createViewModel(handle).onAction(KeypadAction.VoicemailKeyLongPressed)
+
+        // A new view model over the same saved state, as after the process was killed.
+        val restored = createViewModel(handle)
+
+        assertEquals(KeypadError.VOICEMAIL_NOT_READY, restored.uiState.value.error)
     }
 
     // endregion
@@ -316,9 +338,10 @@ class KeypadViewModelTest : BaseKeypadViewModelTest() {
         viewModel.effects.test {
             viewModel.onAction(KeypadAction.CallClicked)
 
-            assertEquals(KeypadScreenEffect.ShowProhibitedNumberError, awaitItem())
-            cancelAndIgnoreRemainingEvents()
+            // Refused: no call, just the dialog.
+            expectNoEvents()
         }
+        assertEquals(KeypadError.PROHIBITED_NUMBER, viewModel.uiState.value.error)
         assertEquals("", viewModel.uiState.value.digits)
     }
 

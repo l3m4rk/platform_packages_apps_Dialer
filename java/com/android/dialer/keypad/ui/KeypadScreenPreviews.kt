@@ -115,7 +115,8 @@ private fun PreviewKeypadScreen(uiState: KeypadUiState) {
     )
 }
 
-private fun previewKeypadStrings() = KeypadStrings(
+/** Fixed text for previews, which render without the app's string resources wired in. */
+internal fun previewKeypadStrings() = KeypadStrings(
     voicemailKeyAction = "call voicemail",
     plusKeyAction = "dial plus",
     deleteButton = "backspace",
@@ -125,4 +126,8 @@ private fun previewKeypadStrings() = KeypadStrings(
     addPause = "Add 2-sec pause",
     addWait = "Add wait",
     callWithNote = "Call with a note",
+    voicemailAirplaneModeError = "Turn off airplane mode to call voicemail.",
+    voicemailNotReadyError = "Voicemail is not set up yet.",
+    prohibitedNumberError = "This number cannot be dialed.",
+    ok = "OK",
 )

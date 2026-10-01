@@ -38,8 +38,6 @@ import com.android.dialer.app.settings.DialerSettingsActivity;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.constants.ActivityRequestCodes;
-import com.android.dialer.dialpadview.DialpadFragment.DialpadListener;
-import com.android.dialer.dialpadview.DialpadFragment.OnDialpadQueryChangedListener;
 import com.android.dialer.keypad.KeypadFragment;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
@@ -261,7 +259,7 @@ public class MainSearchController implements SearchBarListener {
     bottomNav.setVisibility(View.VISIBLE);
   }
 
-  /** Should be called when {@link DialpadListener#onDialpadShown()} is called. */
+  /** Should be called when {@link KeypadFragment.HostListener#onDialpadShown()} is called. */
   public void onDialpadShown() {
     LogUtil.enterBlock("MainSearchController.onDialpadShown");
     dialpadFragment.slideUp(true);
@@ -452,7 +450,7 @@ public class MainSearchController implements SearchBarListener {
     }
   }
 
-  /** @see OnDialpadQueryChangedListener#onDialpadQueryChanged(java.lang.String) */
+  /** @see KeypadFragment.OnQueryChangedListener#onDialpadQueryChanged(java.lang.String) */
   public void onDialpadQueryChanged(String query) {
     String normalizedQuery = SmartDialNameMatcher.normalizeNumber(/* context = */ activity, query);
     if (searchFragment != null) {

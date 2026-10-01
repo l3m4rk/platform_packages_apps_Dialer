@@ -87,10 +87,7 @@ import com.android.dialer.contactsfragment.ContactsFragment.OnContactSelectedLis
 import com.android.dialer.contactsfragment.ContactsFragment;
 import com.android.dialer.database.CallLogQueryHandler;
 import com.android.dialer.database.Database;
-import com.android.dialer.dialpadview.DialpadFragment.DialpadListener;
-import com.android.dialer.dialpadview.DialpadFragment.LastOutgoingCallCallback;
-import com.android.dialer.dialpadview.DialpadFragment.OnDialpadQueryChangedListener;
-import com.android.dialer.dialpadview.DialpadFragment;
+import com.android.dialer.keypad.KeypadFragment;
 import com.android.dialer.duo.DuoComponent;
 import com.android.dialer.i18n.LocaleUtils;
 import com.android.dialer.interactions.PhoneNumberInteraction;
@@ -130,7 +127,6 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.Locale;
 import java.util.Optional;
@@ -177,7 +173,6 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
   private MainOnContactSelectedListener onContactSelectedListener;
 
   // Dialpad and Search
-  private MainDialpadFragmentHost dialpadFragmentHostInterface;
   private MainSearchController searchController;
   private MainOnDialpadQueryChangedListener onDialpadQueryChangedListener;
   private MainDialpadListener dialpadListener;
@@ -206,7 +201,6 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
   private MainBottomNavBarBottomNavTabListener bottomNavTabListener;
   private View snackbarContainer;
   private MissedCallCountObserver missedCallCountObserver;
-  private UiListener<String> getLastOutgoingCallListener;
   private UiListener<Integer> missedCallObserverUiListener;
   private View bottomSheet;
 
@@ -258,9 +252,6 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
   }
 
   private void initUiListeners() {
-    getLastOutgoingCallListener =
-        DialerExecutorComponent.get(activity)
-            .createUiListener(activity.getFragmentManager(), "Query last phone number");
     missedCallObserverUiListener =
         DialerExecutorComponent.get(activity)
             .createUiListener(activity.getFragmentManager(), "Missed call observer");
@@ -268,7 +259,6 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
 
   private void initLayout(Bundle savedInstanceState) {
     onContactSelectedListener = new MainOnContactSelectedListener(activity);
-    dialpadFragmentHostInterface = new MainDialpadFragmentHost();
 
     snackbarContainer = activity.findViewById(R.id.coordinator_layout);
     bottomSheet = activity.findViewById(R.id.promotion_bottom_sheet);
@@ -318,8 +308,7 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
     toolbar.setSearchBarListener(searchController);
 
     onDialpadQueryChangedListener = getNewOnDialpadQueryChangedListener(searchController);
-    dialpadListener =
-        new MainDialpadListener(activity, searchController, getLastOutgoingCallListener);
+    dialpadListener = new MainDialpadListener(searchController);
     searchFragmentListener = new MainSearchFragmentListener(searchController);
     callLogAdapterOnActionModeStateChangedListener =
         new MainCallLogAdapterOnActionModeStateChangedListener();
@@ -499,7 +488,7 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
         return true;
       }
     }
-    return DialpadFragment.isAddCallMode(intent);
+    return KeypadFragment.isAddCallMode(intent);
   }
 
   @SuppressLint("MissingPermission")
@@ -675,8 +664,6 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
       return (T) onDialpadQueryChangedListener;
     } else if (callbackInterface.isInstance(dialpadListener)) {
       return (T) dialpadListener;
-    } else if (callbackInterface.isInstance(dialpadFragmentHostInterface)) {
-      return (T) dialpadFragmentHostInterface;
     } else if (callbackInterface.isInstance(searchFragmentListener)) {
       return (T) searchFragmentListener;
     } else if (callbackInterface.isInstance(callLogAdapterOnActionModeStateChangedListener)) {
@@ -732,9 +719,9 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
     }
   }
 
-  /** @see OnDialpadQueryChangedListener */
+  /** @see KeypadFragment.OnQueryChangedListener */
   protected static class MainOnDialpadQueryChangedListener
-      implements OnDialpadQueryChangedListener {
+      implements KeypadFragment.OnQueryChangedListener {
 
     private final MainSearchController searchController;
 
@@ -748,27 +735,13 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
     }
   }
 
-  /** @see DialpadListener */
-  private static final class MainDialpadListener implements DialpadListener {
+  /** @see KeypadFragment.HostListener */
+  private static final class MainDialpadListener implements KeypadFragment.HostListener {
 
     private final MainSearchController searchController;
-    private final Context context;
-    private final UiListener<String> listener;
 
-    MainDialpadListener(
-        Context context, MainSearchController searchController, UiListener<String> uiListener) {
-      this.context = context;
+    MainDialpadListener(MainSearchController searchController) {
       this.searchController = searchController;
-      this.listener = uiListener;
-    }
-
-    @Override
-    public void getLastOutgoingCall(LastOutgoingCallCallback callback) {
-      ListenableFuture<String> listenableFuture =
-          DialerExecutorComponent.get(context)
-              .backgroundExecutor()
-              .submit(() -> Calls.getLastOutgoingCall(context));
-      listener.listen(context, listenableFuture, callback::lastOutgoingCall, throwable -> {});
     }
 
     @Override
@@ -806,22 +779,6 @@ public class OldMainActivityPeer implements MainActivityPeer, FragmentUtilListen
     @Override
     public void requestingPermission() {
       searchController.requestingPermission();
-    }
-  }
-
-  /** @see DialpadFragment.HostInterface */
-  private static final class MainDialpadFragmentHost implements DialpadFragment.HostInterface {
-
-    @Override
-    public boolean onDialpadSpacerTouchWithEmptyQuery() {
-      // No-op, just let the clicks fall through to the search list
-      return false;
-    }
-
-    @Override
-    public boolean shouldShowDialpadChooser() {
-      // Never show the dialpad chooser. Ever.
-      return false;
     }
   }
 

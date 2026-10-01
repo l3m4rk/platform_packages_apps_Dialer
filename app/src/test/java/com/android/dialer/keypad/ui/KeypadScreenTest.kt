@@ -138,7 +138,7 @@ class KeypadScreenTest {
 
     @Test
     fun aSecondAlphabetShowsUnderTheLatinLetters() {
-        renderScreen(strings = testKeypadStrings().copy(keyLabels = RUSSIAN_LABELS))
+        renderScreen(strings = TEST_KEYPAD_STRINGS.copy(keyLabels = RUSSIAN_LABELS))
 
         composeRule.onNode(textInKey(KeypadKey.TWO, "ABC"), useUnmergedTree = true)
             .assertIsDisplayed()
@@ -148,7 +148,7 @@ class KeypadScreenTest {
 
     @Test
     fun keysInARowStayTheSameHeightWithASecondAlphabet() {
-        renderScreen(strings = testKeypadStrings().copy(keyLabels = RUSSIAN_LABELS))
+        renderScreen(strings = TEST_KEYPAD_STRINGS.copy(keyLabels = RUSSIAN_LABELS))
 
         // 1 has no letters at all, 2 has two rows of them.
         val one = composeRule.onNodeWithTag(keypadKeyTestTag(KeypadKey.ONE)).getBoundsInRoot()
@@ -159,7 +159,7 @@ class KeypadScreenTest {
     @Test
     fun aPersianKeyShowsAndReadsItsPersianDigit() {
         val persian = KeypadKeyLabels.of(Locale.forLanguageTag("fa"), secondaryKeyToChars = null)
-        renderScreen(strings = testKeypadStrings().copy(keyLabels = persian))
+        renderScreen(strings = TEST_KEYPAD_STRINGS.copy(keyLabels = persian))
 
         composeRule.onNode(textInKey(KeypadKey.TWO, "۲"), useUnmergedTree = true)
             .assertIsDisplayed()
@@ -183,7 +183,7 @@ class KeypadScreenTest {
 
     private fun renderScreen(
         uiState: KeypadUiState = KeypadUiState(),
-        strings: KeypadStrings = testKeypadStrings(),
+        strings: KeypadStrings = TEST_KEYPAD_STRINGS,
     ) {
         composeRule.setContent {
             DialerTheme {
@@ -195,18 +195,6 @@ class KeypadScreenTest {
             }
         }
     }
-
-    private fun testKeypadStrings() = KeypadStrings(
-        voicemailKeyAction = "call voicemail",
-        plusKeyAction = "dial plus",
-        deleteButton = "backspace",
-        overflowButton = "More options",
-        call = "Call",
-        emergencyCallWarning = "no emergency calls over wifi",
-        addPause = "Add 2-sec pause",
-        addWait = "Add wait",
-        callWithNote = "Call with a note",
-    )
 
     private companion object {
         private val RUSSIAN_LABELS = KeypadKeyLabels.of(

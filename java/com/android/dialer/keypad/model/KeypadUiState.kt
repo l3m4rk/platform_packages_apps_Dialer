@@ -23,4 +23,6 @@ internal data class KeypadUiState(
     val isPseudoEmergencyNumber: Boolean = false,
     /** Whether the overflow menu offers "Call with a note". */
     val isCallWithNoteAvailable: Boolean = false,
+    /** The error to show in a dialog, until the user dismisses it. */
+    val error: KeypadError? = null,
 )
