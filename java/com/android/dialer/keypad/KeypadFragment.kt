@@ -196,11 +196,10 @@ class KeypadFragment : Fragment() {
     /**
      * Empties the field, as when the host closes search.
      *
-     * The host wrapped the same call on `DialpadFragment` with `setImportantForAccessibility(NO)`
-     * and back on the digits `EditText`, to stop TalkBack announcing the emptied field. That has no
-     * equivalent here and needs none: the digits are a plain `Text` — not focusable, not editable,
-     * not a live region — so clearing them raises no text-changed event. The bracket could not work
-     * in Compose anyway, since the text changes on the next frame, after it has been restored.
+     * The host used to hide the field from accessibility around this call, so TalkBack would not
+     * announce the deletion. Compose has no such switch, and none is needed: the host only clears
+     * a field that is already empty, a keypad that is hidden, or one whose activity is pausing
+     * after a call, so there is never a visible deletion to announce.
      */
     fun clearDialpad() {
         // The host may call this in the gap between creating the fragment and its asynchronous

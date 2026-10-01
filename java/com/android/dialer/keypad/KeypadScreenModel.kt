@@ -8,11 +8,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * What the keypad screen may ask of its view model.
+ * What the keypad's host may ask of its view model, as Messaging's screens declare theirs.
  *
- * Separate from [KeypadViewModel] so that previews and Compose tests can drive the screen with a
- * fake, without Hilt or a real telephony stack behind it. A single [onAction] rather than a method
- * per interaction keeps the screen's callback surface to one stable lambda.
+ * The screen itself never sees this: it takes [KeypadUiState] and an [onAction] lambda, so tests
+ * and previews render it from plain state. A single [onAction] rather than a method per
+ * interaction keeps that callback surface to one stable lambda.
  */
 internal interface KeypadScreenModel {
 
